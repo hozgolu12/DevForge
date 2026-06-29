@@ -32,19 +32,44 @@ COMPOSE_PREAMBLE = """\
 # DO NOT EDIT MANUALLY — regenerate with: devforge plugin install <name>
 # ==============================================================================
 
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-
-x-security-defaults: &security-defaults
-  security_opt:
-    - no-new-privileges:true
-  cap_drop:
-    - ALL
-
 """
+
+DEFAULT_LOGGING = {
+    "driver": "json-file",
+    "options": {
+        "max-size": "10m",
+        "max-file": "3"
+    }
+}
+
+SECURITY_DEFAULTS = {
+    "security_opt": [
+        "no-new-privileges:true"
+    ],
+    "cap_drop": [
+        "ALL"
+    ]
+}
+
+
+class CustomAnchorDumper(yaml.SafeDumper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.custom_anchors = {}
+
+    def represent_data(self, data):
+        node = super().represent_data(data)
+        if data == DEFAULT_LOGGING:
+            self.custom_anchors[id(node)] = "default-logging"
+        elif data == SECURITY_DEFAULTS:
+            self.custom_anchors[id(node)] = "security-defaults"
+        return node
+
+    def generate_anchor(self, node):
+        if id(node) in self.custom_anchors:
+            return self.custom_anchors[id(node)]
+        return super().generate_anchor(node)
+
 
 # Profile-specific environment overrides applied on top of fragments
 PROFILE_ENV_OVERRIDES = {
@@ -113,7 +138,21 @@ class ComposeGenerator:
                 continue
 
             rendered = self._render_fragment(fragment_path, context)
-            fragment_data = yaml.safe_load(rendered)
+            # Prepend minimal anchors preamble to resolve aliases during safe loading
+            anchors_preamble = """\
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security-defaults: &security-defaults
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+"""
+            fragment_data = yaml.safe_load(anchors_preamble + "\n" + rendered)
 
             if not fragment_data:
                 continue
@@ -147,8 +186,16 @@ class ComposeGenerator:
             all_services.update(services)
             all_volumes.update(volumes.keys() if volumes else [])
 
-        # Build the final compose structure
+        # Ensure identical object references are used for logging in services
+        for svc_name, svc_cfg in all_services.items():
+            if isinstance(svc_cfg, dict):
+                if svc_cfg.get("logging") == DEFAULT_LOGGING:
+                    svc_cfg["logging"] = DEFAULT_LOGGING
+
+        # Build the final compose structure, putting anchors first to ensure they are visited first by PyYAML
         compose_dict = {
+            "x-logging": DEFAULT_LOGGING,
+            "x-security-defaults": SECURITY_DEFAULTS,
             "services": all_services,
             "networks": {
                 "devforge-network": {
@@ -165,9 +212,10 @@ class ComposeGenerator:
         preamble_tmpl = self._jinja_env.from_string(COMPOSE_PREAMBLE)
         preamble = preamble_tmpl.render(**context)
 
-        # Dump YAML (suppress None values in volumes)
+        # Dump YAML using CustomAnchorDumper (suppress None values in volumes)
         yaml_body = yaml.dump(
             compose_dict,
+            Dumper=CustomAnchorDumper,
             default_flow_style=False,
             sort_keys=False,
             allow_unicode=True,
@@ -217,6 +265,7 @@ class ComposeGenerator:
         plugin_versions: dict[str, str],
         frameworks: dict,
         ports: dict,
+        skip_dev: bool = False,
     ):
         """
         Write docker-compose.yml (default dev) and all profile variants
@@ -227,6 +276,9 @@ class ComposeGenerator:
         profiles = ["dev", "testing", "production"]
 
         for profile in profiles:
+            if profile == "dev" and skip_dev:
+                continue
+
             content = self.generate(
                 project, plugins, plugin_versions, frameworks, ports, profile
             )
@@ -239,6 +291,10 @@ class ComposeGenerator:
                 target = project.compose_for_profile(profile)
 
             target.write_text(content, encoding="utf-8")
+            try:
+                display_path = target.relative_to(Path('/workspace'))
+            except ValueError:
+                display_path = target
             console.print(
-                f"  [green]✓[/green] Generated [bold]{target.relative_to(Path('/workspace'))}[/bold]"
+                f"  [green]✓[/green] Generated [bold]{display_path}[/bold]"
             )

@@ -1,4 +1,5 @@
 import json
+import yaml
 import os
 import shutil
 import tempfile
@@ -166,6 +167,76 @@ class TestExistingImport(unittest.TestCase):
 
         self.assertIn("my-web", merged["services"])
         self.assertIn("postgres", merged["services"])
+
+    def test_generate_env_with_secrets(self):
+        from engine.workspace import Project
+        from engine.generator import ProjectGenerator
+        
+        project = Project("testproj_env", path=self.test_dir)
+        project.ensure_devforge_dir()
+        
+        gen = ProjectGenerator()
+        
+        # Test case 1: Generates random secrets from default placeholders
+        # Let's run with postgres and redis plugins
+        plugins = ["postgres", "redis"]
+        ports = {"postgres": 5432, "redis": 6379}
+        
+        gen._generate_env(project, plugins, ports)
+        
+        env_path = self.test_dir / ".env"
+        self.assertTrue(env_path.exists())
+        
+        env_content = env_path.read_text(encoding="utf-8")
+        
+        # Parse it
+        lines = [line.strip() for line in env_content.splitlines()]
+        env_dict = {}
+        for line in lines:
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                env_dict[k.strip()] = v.strip()
+                
+        # Confirm REDIS_PASSWORD and POSTGRES_PASSWORD generated with devforge_ prefix and hex characters
+        redis_pass = env_dict.get("REDIS_PASSWORD")
+        pg_pass = env_dict.get("POSTGRES_PASSWORD")
+        
+        self.assertIsNotNone(redis_pass)
+        self.assertIsNotNone(pg_pass)
+        self.assertTrue(redis_pass.startswith("devforge_redis_"))
+        self.assertTrue(pg_pass.startswith("devforge_pg_"))
+        self.assertNotEqual(redis_pass, "SetSecurePasswordHere789!")
+        self.assertNotEqual(pg_pass, "SetSecurePasswordHere123!")
+        
+        # Test case 2: Run again with existing custom and placeholder values
+        custom_env_lines = [
+            "POSTGRES_PASSWORD=my_custom_pg_password",
+            "REDIS_PASSWORD=SetSecurePasswordHere789!",
+            "MY_CUSTOM_VAR=hello_world",
+        ]
+        env_path.write_text("\n".join(custom_env_lines), encoding="utf-8")
+        
+        # Re-run generator
+        gen._generate_env(project, plugins, ports)
+        
+        new_content = env_path.read_text(encoding="utf-8")
+        new_env_dict = {}
+        for line in new_content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                new_env_dict[k.strip()] = v.strip()
+                
+        # Custom POSTGRES_PASSWORD should be preserved
+        self.assertEqual(new_env_dict.get("POSTGRES_PASSWORD"), "my_custom_pg_password")
+        
+        # Placeholder REDIS_PASSWORD should have been replaced with a new random secret
+        new_redis_pass = new_env_dict.get("REDIS_PASSWORD")
+        self.assertTrue(new_redis_pass.startswith("devforge_redis_"))
+        self.assertNotEqual(new_redis_pass, "SetSecurePasswordHere789!")
+        
+        # Unmanaged variable MY_CUSTOM_VAR should be preserved
+        self.assertEqual(new_env_dict.get("MY_CUSTOM_VAR"), "hello_world")
 
 if __name__ == "__main__":
     unittest.main()

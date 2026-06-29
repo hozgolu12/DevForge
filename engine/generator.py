@@ -21,7 +21,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich import box
 
-from engine.workspace import WorkspaceManager, Project, WORKSPACE_ROOT, PROJECTS_DIR
+from engine.workspace import WorkspaceManager, Project, WORKSPACE_ROOT, PROJECTS_DIR, get_devforge_root
 from engine.composer import ComposeGenerator
 from engine.detection import DetectionEngine
 from engine.validation import Validator
@@ -552,7 +552,7 @@ class ProjectGenerator:
 
     def _scaffold_frameworks(self, project: Project, frameworks: dict):
         """Copy framework templates into the project directory."""
-        templates_dir = WORKSPACE_ROOT / "templates"
+        templates_dir = get_devforge_root() / "templates"
         framework_map = {
             "frontend": {"react": "react", "nextjs": "nextjs"},
             "backend": {
@@ -591,6 +591,31 @@ class ProjectGenerator:
     def _generate_env(self, project: Project, plugins: list[str], ports: dict):
         """Generate .env and .env.example from plugin manifests."""
         import yaml as _yaml
+        import secrets
+
+        # Load existing env vars if .env exists to preserve them
+        existing_env = {}
+        env_file = project.path / ".env"
+        if env_file.exists():
+            try:
+                with open(env_file, "r", encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            existing_env[k.strip()] = v.strip()
+            except Exception:
+                pass
+
+        def gen_secret(plugin_name: str) -> str:
+            mapping = {
+                "postgres": "pg",
+                "mongodb": "mongo",
+                "chromadb": "chroma",
+                "rabbitmq": "rabbit",
+            }
+            prefix = mapping.get(plugin_name, plugin_name).replace("-", "_")
+            return f"devforge_{prefix}_{secrets.token_hex(6)}"
 
         env_lines = [
             "# ==============================================================================",
@@ -602,7 +627,9 @@ class ProjectGenerator:
             "",
         ]
 
-        plugins_dir = WORKSPACE_ROOT / "plugins"
+        written_keys = {"DEVFORGE_ENV", "DEVFORGE_PROJECT"}
+
+        plugins_dir = get_devforge_root() / "plugins"
         for plugin_name in plugins:
             manifest_path = plugins_dir / plugin_name / "plugin.yaml"
             if not manifest_path.exists():
@@ -613,13 +640,44 @@ class ProjectGenerator:
             if env_vars:
                 env_lines.append(f"# --- {plugin_name.upper()} ---")
                 for key, value in env_vars.items():
+                    key_upper = key.upper()
+                    is_secret = any(x in key_upper for x in ["PASSWORD", "TOKEN", "SECRET", "API_KEY", "AUTH"])
+                    
+                    if is_secret:
+                        existing_val = existing_env.get(key)
+                        if existing_val and existing_val != str(value):
+                            value = existing_val
+                        else:
+                            secret_val = gen_secret(plugin_name)
+                            if key == "NEO4J_AUTH":
+                                value = f"neo4j/{secret_val}"
+                            else:
+                                value = secret_val
+                    else:
+                        if key in existing_env:
+                            value = existing_env[key]
+
                     env_lines.append(f"{key}={value}")
+                    written_keys.add(key)
                 env_lines.append("")
 
         # Append port overrides
         env_lines.append("# --- PORTS ---")
         for service, port in ports.items():
-            env_lines.append(f"{service.upper().replace('-', '_')}_PORT={port}")
+            port_key = f"{service.upper().replace('-', '_')}_PORT"
+            env_lines.append(f"{port_key}={port}")
+            written_keys.add(port_key)
+
+        # Preserve custom/other existing env variables
+        custom_lines = []
+        for key, val in existing_env.items():
+            if key not in written_keys:
+                custom_lines.append(f"{key}={val}")
+        
+        if custom_lines:
+            env_lines.append("")
+            env_lines.append("# --- CUSTOM ENV VARIABLES ---")
+            env_lines.extend(custom_lines)
 
         content = "\n".join(env_lines)
         (project.path / ".env").write_text(content, encoding="utf-8")
@@ -1043,8 +1101,38 @@ class ProjectGenerator:
                 merged_data.setdefault("volumes", {}).update(generated_data.get("volumes", {}))
                 merged_data.setdefault("networks", {}).update(generated_data.get("networks", {}))
                 
+                # Normalize merged compose file to use CustomAnchorDumper and keep anchors
+                from engine.composer import CustomAnchorDumper, DEFAULT_LOGGING, SECURITY_DEFAULTS
+                
+                # Ensure they are defined at the top level of merged data
+                has_logging = "x-logging" in merged_data or any(
+                    isinstance(svc, dict) and "logging" in svc
+                    for svc in merged_data.get("services", {}).values()
+                )
+                
+                ordered_merged = {}
+                if has_logging:
+                    ordered_merged["x-logging"] = DEFAULT_LOGGING
+                ordered_merged["x-security-defaults"] = SECURITY_DEFAULTS
+                
+                for k, v in merged_data.items():
+                    if k not in ["x-logging", "x-security-defaults"]:
+                        ordered_merged[k] = v
+                        
+                for svc_name, svc_cfg in ordered_merged.get("services", {}).items():
+                    if isinstance(svc_cfg, dict):
+                        if svc_cfg.get("logging") == DEFAULT_LOGGING:
+                            svc_cfg["logging"] = ordered_merged["x-logging"]
+                            
                 with open(compose_file, "w", encoding="utf-8") as f:
-                    yaml.dump(merged_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+                    yaml.dump(
+                        ordered_merged,
+                        f,
+                        Dumper=CustomAnchorDumper,
+                        default_flow_style=False,
+                        sort_keys=False,
+                        allow_unicode=True,
+                    )
                 
                 console.print(f"  [green]✓[/green] Merged services into docker-compose.yml")
             except Exception as e:
@@ -1057,6 +1145,7 @@ class ProjectGenerator:
             plugin_versions=config["plugin_versions"],
             frameworks=config["frameworks"],
             ports=config["ports"],
+            skip_dev=(action in ["Reuse", "Merge"]),
         )
 
     def _generate_devforge_files(self, project: Project, config: dict, project_path: Path):

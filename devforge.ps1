@@ -42,22 +42,22 @@ $V2_COMMANDS = @("new", "template", "plugin", "start", "stop", "generate", "use"
 
 if ($V2_COMMANDS -contains $command) {
 
+    # Resolve DevForge root directory (where this script resides)
+    $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+    if (-not $DEVFORGE_ROOT) {
+        $DEVFORGE_ROOT = $PSScriptRoot
+    }
+
     # Auto-build: detect if CLI image exists, build it automatically if missing
     $imageExists = docker image inspect $CLI_IMAGE 2>$null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[DevForge] CLI image '$CLI_IMAGE' not found. Building automatically..." -ForegroundColor Yellow
-        docker build -t $CLI_IMAGE -f $CLI_DOCKERFILE . --quiet
+        docker build -t $CLI_IMAGE -f "$DEVFORGE_ROOT/$CLI_DOCKERFILE" "$DEVFORGE_ROOT"
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[DevForge] ERROR: Failed to build CLI image. Is Docker running?" -ForegroundColor Red
             exit 1
         }
         Write-Host "[DevForge] CLI image built successfully." -ForegroundColor Green
-    }
-
-    # Resolve DevForge root directory (where this script resides)
-    $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
-    if (-not $DEVFORGE_ROOT) {
-        $DEVFORGE_ROOT = $PSScriptRoot
     }
 
     # Handle import volume mapping
@@ -90,11 +90,19 @@ switch ($command) {
     "up" {
         Write-Header "Starting DevForge Services"
         docker-compose up -d
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMsg "Failed to start DevForge services."
+            exit $LASTEXITCODE
+        }
         Write-Success "DevForge is running."
     }
     "down" {
         Write-Header "Stopping DevForge Services"
         docker-compose down
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMsg "Failed to stop DevForge services."
+            exit $LASTEXITCODE
+        }
         Write-Success "DevForge has stopped."
     }
     "restart" {
@@ -105,6 +113,10 @@ switch ($command) {
         } else {
             Write-Header "Restarting all DevForge services"
             docker-compose restart
+        }
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMsg "Failed to restart DevForge services."
+            exit $LASTEXITCODE
         }
         Write-Success "Restart complete."
     }
@@ -128,7 +140,21 @@ switch ($command) {
             exit 1
         }
         Write-Header "Opening shell inside container '$service'"
-        docker-compose exec $service zsh || docker-compose exec $service bash || docker-compose exec $service sh
+        $container_ids = @(docker-compose ps -q $service)
+        $container_id = $container_ids[0]
+        if ($container_id) {
+            $shell = "sh"
+            foreach ($sh in @("zsh", "bash")) {
+                docker exec $container_id sh -c "command -v $sh" >$null 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $shell = $sh
+                    break
+                }
+            }
+            docker-compose exec $service $shell
+        } else {
+            Write-ErrorMsg "Container for '$service' is not running."
+        }
     }
     "create" {
         $template = $args[1]

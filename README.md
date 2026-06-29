@@ -215,6 +215,11 @@ cp .env.example .env
 ./devforge doctor
 ```
 
+> [!TIP]
+> **Global CLI Shortcut:** To run `devforge` globally from any folder:
+> - **PowerShell (Windows):** Run `Add-Content -Path $PROFILE -Value "function devforge { & 'D:\Coding\DevForge\devforge.ps1' \`@args }"` to register it permanently.
+> - **Bash/Zsh (Linux/macOS):** Add `alias devforge="/path/to/DevForge/devforge"` to your `~/.bashrc` or `~/.zshrc` file.
+
 ---
 
 ## Quick Start
