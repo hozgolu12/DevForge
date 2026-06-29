@@ -35,6 +35,9 @@ graph TD
         Flask[Flask API] -->|Database Connections| Mongo
         Django[Django App] -->|Database Connections| Postgres
         Jupyter[JupyterLab] -->|Database Connections| Mongo
+        AI[AI Dev API] -->|AI Queries| Ollama
+        AI -->|Vector Search| Chroma
+        AI -->|Vector Search| Qdrant
     end
 ```
 

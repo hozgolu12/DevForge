@@ -1,5 +1,5 @@
 # DevForge Platform Automation Makefile
-.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django
+.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell
 
 # Default service for shell command
 SERVICE ?= nginx
@@ -122,3 +122,12 @@ create-flask:
 # Create Django project from template (usage: make create-django name=my-app)
 create-django:
 	@bash ./scripts/create-django.sh $(name)
+
+# Create AI project from template (usage: make create-ai name=my-app)
+create-ai:
+	@bash ./scripts/create-ai.sh $(name)
+
+# Open bash shell into an AI container (usage: make ai-shell)
+ai-shell:
+	@echo "Opening shell in AI service..."
+	docker compose exec ai zsh || docker compose exec ai bash || docker compose exec ai sh || docker compose run --entrypoint bash ai

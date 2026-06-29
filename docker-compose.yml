@@ -570,6 +570,36 @@ services:
       start_period: 20s
 
   # ----------------------------------------------------------------------------
+  # AI PLATFORM DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  ai:
+    build:
+      context: .
+      dockerfile: ./docker/ai/Dockerfile
+    container_name: devforge-ai
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-ai
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "${AI_PORT:-8083}:8000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - ENV=development
+      - PORT=8000
+    command: sh -c "uv pip install --system -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
   # JUPYTERLAB ENVIRONMENT
   # ----------------------------------------------------------------------------
   jupyter:
