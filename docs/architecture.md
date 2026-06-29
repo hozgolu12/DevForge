@@ -38,6 +38,7 @@ graph TD
         AI[AI Dev API] -->|AI Queries| Ollama
         AI -->|Vector Search| Chroma
         AI -->|Vector Search| Qdrant
+        SpringBoot[Spring Boot App] -->|Database Connections| Postgres
     end
 ```
 
@@ -62,6 +63,7 @@ Data is isolated using named volumes defined at the bottom of `docker-compose.ym
 * `devforge_nextjs_node_modules`: Dynamic named volume for Next.js package cache.
 * `devforge_express_node_modules`: Dynamic named volume for Express package cache.
 * `devforge_nestjs_node_modules`: Dynamic named volume for NestJS package cache.
+* `devforge_m2data`: Named volume for Maven package dependencies cache.
 
 ---
 

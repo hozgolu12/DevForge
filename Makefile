@@ -1,5 +1,5 @@
 # DevForge Platform Automation Makefile
-.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell
+.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell create-springboot java-shell
 
 # Default service for shell command
 SERVICE ?= nginx
@@ -131,3 +131,12 @@ create-ai:
 ai-shell:
 	@echo "Opening shell in AI service..."
 	docker compose exec ai zsh || docker compose exec ai bash || docker compose exec ai sh || docker compose run --entrypoint bash ai
+
+# Create Spring Boot project from template (usage: make create-springboot name=my-app)
+create-springboot:
+	@bash ./scripts/create-springboot.sh $(name)
+
+# Open bash shell into a Java container (usage: make java-shell)
+java-shell:
+	@echo "Opening shell in Spring Boot service..."
+	docker compose exec springboot zsh || docker compose exec springboot bash || docker compose exec springboot sh || docker compose run --entrypoint bash springboot

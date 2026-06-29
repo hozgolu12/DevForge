@@ -196,5 +196,6 @@ Store your project files under the `projects/` directory. You can mount folders 
 * [x] Add Node/React project templates
 * [x] Add Python/FastAPI backend blueprints
 * [x] Add AI/ML development ecosystem (PyTorch, TensorFlow, LangChain, OCR, Whisper)
+* [x] Add Java/Spring Boot development environment (JDK 21, Maven, Gradle)
 * [ ] Deploy SSL routing in local gateway configurations
 * [ ] Setup local Docker Registry cache

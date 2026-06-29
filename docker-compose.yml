@@ -600,6 +600,34 @@ services:
       start_period: 20s
 
   # ----------------------------------------------------------------------------
+  # SPRING BOOT DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  springboot:
+    build:
+      context: .
+      dockerfile: ./docker/java/Dockerfile
+    container_name: devforge-springboot
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-springboot
+    volumes:
+      - .:/workspace:cached
+      - m2data:/home/devforge/.m2
+    ports:
+      - "${SPRINGBOOT_PORT:-8084}:8080"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    command: sh -c "mvn spring-boot:run"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
   # JUPYTERLAB ENVIRONMENT
   # ----------------------------------------------------------------------------
   jupyter:
@@ -666,3 +694,5 @@ volumes:
     name: devforge_express_node_modules
   nestjs_node_modules:
     name: devforge_nestjs_node_modules
+  m2data:
+    name: devforge_m2data
