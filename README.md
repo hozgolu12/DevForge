@@ -86,18 +86,26 @@ DevForge/
    ```bash
    cp .env.example .env
    ```
-3. Run the doctor command to verify system readiness:
-   ```bash
-   make doctor
+3. Run diagnostics to verify system readiness:
+   ```powershell
+   # On Windows (PowerShell)
+   .\devforge.ps1 doctor
+
+   # On Linux/macOS/Git Bash
+   ./devforge doctor
    ```
 
 ---
 
 ## Quick Start
 
-Start the complete environment using the local Makefile:
-```bash
-make up
+Start the complete environment using the unified CLI:
+```powershell
+# On Windows (PowerShell)
+.\devforge.ps1 up
+
+# On Linux/macOS/Git Bash
+./devforge up
 ```
 
 Once online, open your browser and navigate to:
@@ -198,5 +206,9 @@ Store your project files under the `projects/` directory. You can mount folders 
 * [x] Add AI/ML development ecosystem (PyTorch, TensorFlow, LangChain, OCR, Whisper)
 * [x] Add Java/Spring Boot development environment (JDK 21, Maven, Gradle)
 * [x] Add Flutter/Android mobile application environment (SDK 34, Build Tools, stable Flutter SDK)
+* [x] Deploy database admin dashboards (pgAdmin, Mongo Express, Redis Commander) and backup automations
+* [x] Integrate observability stack (Prometheus, Grafana, Loki, cAdvisor) and middleware (MinIO, RabbitMQ)
+* [x] Develop unified developer platform CLI (devforge.ps1 and devforge script commands)
+* [x] Harden production deployments (Trivy scans, Docker build validation matrix, SBOM JSON generation)
 * [ ] Deploy SSL routing in local gateway configurations
 * [ ] Setup local Docker Registry cache

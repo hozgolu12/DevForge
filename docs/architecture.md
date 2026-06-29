@@ -40,6 +40,14 @@ graph TD
         AI -->|Vector Search| Qdrant
         SpringBoot[Spring Boot App] -->|Database Connections| Postgres
         Flutter[Flutter Mobile Builder] -.->|Host ADB USB Bridge| PhysicalDevice[Physical Android Phone]
+        pgadmin[pgAdmin 4] -->|Admin Queries| Postgres
+        mongoexpress[Mongo Express] -->|Admin Queries| Mongo
+        rediscommander[Redis Commander] -->|Admin Queries| Redis
+        prometheus[Prometheus] -->|Scrapes Metrics| cadvisor[cAdvisor]
+        grafana[Grafana] -->|Queries Metrics| prometheus
+        grafana -->|Queries Logs| loki[Loki]
+        rabbitmq[RabbitMQ Broker]
+        minio[MinIO Object Storage]
     end
 ```
 
@@ -66,6 +74,9 @@ Data is isolated using named volumes defined at the bottom of `docker-compose.ym
 * `devforge_nestjs_node_modules`: Dynamic named volume for NestJS package cache.
 * `devforge_m2data`: Named volume for Maven package dependencies cache.
 * `devforge_gradle_cache`: Named volume for Android/Gradle build cache.
+* `devforge_promdata`: Named volume for Prometheus metrics database.
+* `devforge_grafanadata`: Named volume for Grafana configuration and dashboards.
+* `devforge_miniodata`: Named volume for MinIO Object Storage files.
 
 ---
 
@@ -76,3 +87,10 @@ To ensure container runs adhere to security standards, we apply:
 2. **Linux Capability Restrictions**: Unneeded root powers are dropped using `cap_drop: [ALL]`. Required features (like `CHOWN` or `DAC_OVERRIDE` on Postgres) are added explicitly.
 3. **Read-Only Root Filesystems**: Where supported (e.g., Nginx, Redis), directories are mounted read-only and `tmpfs` is used for ephemeral folders like `/tmp` or `/run`.
 4. **No Privilege Escalation**: Enabled `security_opt: [no-new-privileges:true]` to block processes from gaining additional privileges.
+
+---
+
+## 4. Platform CLI Orchestration
+
+All services are managed locally via either the native Windows PowerShell CLI (`devforge.ps1`) or the POSIX-compliant Bash wrapper (`devforge`). These clients encapsulate the underlying `docker compose` orchestrations, database scripting, and scaffolding routines to minimize host dependencies.
+

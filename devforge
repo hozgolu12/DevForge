@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# DEVFORGE PLATFORM BASH COMMAND LINE INTERFACE (CLI)
+# ==============================================================================
+# POSIX-compliant entrypoint to manage the DevForge platform on Linux/macOS/Git Bash.
+# Usage: ./devforge <command> [arguments]
+# ==============================================================================
+
+set -euo pipefail
+
+COMMAND=${1:-"help"}
+
+# Helper formatting
+print_header() {
+    echo -e "\n=== $1 ==="
+}
+
+print_success() {
+    echo -e "SUCCESS: $1"
+}
+
+print_error() {
+    echo -e "ERROR: $1"
+}
+
+case "$COMMAND" in
+    "up")
+        print_header "Starting DevForge Services"
+        docker compose up -d
+        print_success "DevForge is running."
+        ;;
+    "down")
+        print_header "Stopping DevForge Services"
+        docker compose down
+        print_success "DevForge has stopped."
+        ;;
+    "restart")
+        SERVICE=${2:-""}
+        if [ -n "$SERVICE" ]; then
+            print_header "Restarting DevForge service '$SERVICE'"
+            docker compose restart "$SERVICE"
+        else
+            print_header "Restarting all DevForge services"
+            docker compose restart
+        fi
+        print_success "Restart complete."
+        ;;
+    "status")
+        print_header "DevForge Container Status"
+        docker compose ps
+        ;;
+    "logs")
+        SERVICE=${2:-""}
+        if [ -z "$SERVICE" ]; then
+            print_error "Please specify a service name. Usage: ./devforge logs <service>"
+            exit 1
+        fi
+        print_header "Output logs for '$SERVICE' (Press Ctrl+C to exit)"
+        docker compose logs -f --tail=100 "$SERVICE"
+        ;;
+    "shell")
+        SERVICE=${2:-""}
+        if [ -z "$SERVICE" ]; then
+            print_error "Please specify a service name. Usage: ./devforge shell <service>"
+            exit 1
+        fi
+        print_header "Opening shell inside container '$SERVICE'"
+        docker compose exec "$SERVICE" zsh || docker compose exec "$SERVICE" bash || docker compose exec "$SERVICE" sh
+        ;;
+    "create")
+        TEMPLATE=${2:-""}
+        NAME=${3:-""}
+        if [ -z "$TEMPLATE" ] || [ -z "$NAME" ]; then
+            print_error "Usage: ./devforge create <template> <project_name>"
+            echo "Available templates: react, nextjs, express, nestjs, fastapi, flask, django, springboot, flutter, ai"
+            exit 1
+        fi
+        print_header "Scaffolding project '$NAME' from template '$TEMPLATE'"
+        if [ -f "scripts/create-$TEMPLATE.sh" ]; then
+            bash "./scripts/create-$TEMPLATE.sh" "$NAME"
+        else
+            print_error "Template '$TEMPLATE' does not exist."
+        fi
+        ;;
+    "doctor")
+        print_header "DevForge Diagnostic Doctor"
+        
+        # Check Docker
+        echo -n "Checking Docker daemon status..."
+        if docker info >/dev/null 2>&1; then
+            echo " [RUNNING]"
+        else
+            echo " [STOPPED]"
+            print_error "Docker daemon is not running."
+        fi
+
+        # Check Compose
+        echo -n "Checking Compose configuration syntax..."
+        if docker compose config -q >/dev/null 2>&1; then
+            echo " [VALID]"
+        else
+            echo " [INVALID]"
+            docker compose config
+        fi
+        ;;
+    "backup")
+        print_header "Executing database backups"
+        bash "./scripts/db-backup.sh"
+        ;;
+    "restore")
+        FOLDER=${2:-""}
+        if [ -z "$FOLDER" ]; then
+            print_error "Please specify a backup directory. Usage: ./devforge restore backups/YYYYMMDD_HHMMSS"
+            exit 1
+        fi
+        print_header "Restoring databases from snapshot '$FOLDER'"
+        bash "./scripts/db-restore.sh" "$FOLDER"
+        ;;
+    "seed")
+        print_header "Seeding active databases"
+        bash "./scripts/db-seed.sh"
+        ;;
+    "build-apk")
+        print_header "Compiling Flutter release APK"
+        docker compose exec flutter flutter build apk --release
+        print_success "APK compilation finished."
+        ;;
+    *)
+        echo "DevForge local developer platform CLI"
+        echo "Usage: ./devforge <command> [arguments]"
+        echo -e "\nAvailable Commands:"
+        echo "  up               Start all DevForge services"
+        echo "  down             Stop all DevForge services"
+        echo "  restart [svc]    Restart a specific or all services"
+        echo "  status           Show running containers status"
+        echo "  logs <svc>       View tailing logs for a service"
+        echo "  shell <svc>      Open interactive terminal inside a container"
+        echo "  create <t> <n>   Generate project <n> from template <t>"
+        echo "  doctor           Run platform health diagnostics"
+        echo "  backup           Back up active databases"
+        echo "  restore <f>      Restore database state from snapshot folder <f>"
+        echo "  seed             Populate databases with starter data"
+        echo "  build-apk        Compile Flutter Android APK release target"
+        ;;
+esac

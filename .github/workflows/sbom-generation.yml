@@ -1,13 +1,11 @@
-name: Docker Build Validation
+name: Generate Software Bill of Materials (SBOM)
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build-validation:
+  generate-sbom:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,11 +31,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Validate build for ${{ matrix.service }}
+      - name: Build Local Image
         uses: docker/build-push-action@v5
         with:
           context: ./docker/${{ matrix.service }}
           file: ./docker/${{ matrix.service }}/Dockerfile
-          push: false
+          load: true
+          tags: devforge-${{ matrix.service }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: devforge-${{ matrix.service }}:latest
+          output-file: sbom-${{ matrix.service }}.spdx.json
+          format: spdx-json
+
+      - name: Upload SBOM Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json

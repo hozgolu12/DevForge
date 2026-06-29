@@ -1,0 +1,8 @@
+# ==============================================================================
+# DEVFORGE REDIS STARTER SEED COMMANDS
+# ==============================================================================
+
+SET devforge:system:status "operational"
+SET devforge:system:version "1.0.0"
+HSET devforge:ports gateway 8080 react 5173 fastapi 8081 django 8082 ai 8083 springboot 8084
+EXPIRE devforge:system:status 3600
