@@ -1,0 +1,19 @@
+services:
+  mongo-express:
+    image: mongo-express:1.0.2-alpine3.19
+    container_name: "{{ project_name }}-mongo-express"
+    restart: unless-stopped
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-admin}
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8087}:8081"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    depends_on:
+      mongodb:
+        condition: service_healthy

@@ -1,0 +1,21 @@
+services:
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: "{{ project_name }}-prometheus"
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheusdata:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - devforge-network
+    logging: *default-logging
+
+volumes:
+  prometheusdata:

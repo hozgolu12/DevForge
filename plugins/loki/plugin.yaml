@@ -1,0 +1,13 @@
+name: loki
+display_name: "Loki"
+version: "3.0"
+versions: ["2.9", "3.0"]
+category: monitoring
+description: "Log aggregation system by Grafana"
+depends_on: []
+ports:
+  - host: 3100
+    container: 3100
+    env_key: LOKI_PORT
+env:
+  LOKI_PORT: 3100

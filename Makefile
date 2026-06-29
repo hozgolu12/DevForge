@@ -1,5 +1,28 @@
 # DevForge Platform Automation Makefile
-.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell create-springboot java-shell create-flutter flutter-shell flutter-build-apk
+.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell create-springboot java-shell create-flutter flutter-shell flutter-build-apk build-cli rebuild-cli
+
+# ==============================================================================
+# DEVFORGE v2 — CLI IMAGE TARGETS
+# ==============================================================================
+
+CLI_IMAGE ?= devforge-cli:2.0
+
+# Build the DevForge CLI Docker image (used by v2 commands)
+build-cli:
+	@echo "Building DevForge CLI image '$(CLI_IMAGE)'..."
+	docker build -t $(CLI_IMAGE) -f docker/cli/Dockerfile .
+	@echo "SUCCESS: CLI image '$(CLI_IMAGE)' built."
+
+# Rebuild CLI image from scratch (no cache)
+rebuild-cli:
+	@echo "Rebuilding DevForge CLI image from scratch..."
+	docker build --no-cache -t $(CLI_IMAGE) -f docker/cli/Dockerfile .
+	@echo "SUCCESS: CLI image rebuilt."
+
+# ==============================================================================
+# DEVFORGE v1 — ORIGINAL PLATFORM TARGETS (UNCHANGED)
+# ==============================================================================
+
 
 # Default service for shell command
 SERVICE ?= nginx

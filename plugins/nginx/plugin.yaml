@@ -1,0 +1,17 @@
+name: nginx
+display_name: "Nginx"
+version: "1.25"
+versions: ["1.24", "1.25"]
+category: proxy
+description: "High-performance reverse proxy and ingress controller"
+depends_on: []
+ports:
+  - host: 80
+    container: 8080
+    env_key: NGINX_PORT
+  - host: 443
+    container: 8443
+    env_key: NGINX_SECURE_PORT
+env:
+  NGINX_PORT: 80
+  NGINX_SECURE_PORT: 443

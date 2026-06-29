@@ -1,0 +1,21 @@
+name: neo4j
+display_name: "Neo4j"
+version: "5.18"
+versions: ["5"]
+category: database
+description: "Graph database for connected data"
+depends_on: []
+ports:
+  - host: 7474
+    container: 7474
+    env_key: NEO4J_PORT_HTTP
+  - host: 7687
+    container: 7687
+    env_key: NEO4J_PORT_BOLT
+volumes:
+  - neo4jdata:/data
+  - neo4jlogs:/logs
+env:
+  NEO4J_AUTH: neo4j/SetSecurePasswordHere321!
+  NEO4J_PORT_HTTP: 7474
+  NEO4J_PORT_BOLT: 7687

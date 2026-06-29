@@ -3,6 +3,10 @@
 # DEVFORGE PLATFORM BASH COMMAND LINE INTERFACE (CLI)
 # ==============================================================================
 # POSIX-compliant entrypoint to manage the DevForge platform on Linux/macOS/Git Bash.
+# v1 commands: up, down, restart, status, logs, shell, create, doctor,
+#              backup, restore, seed, build-apk
+# v2 commands: new, template, plugin, start, stop, generate, use, update,
+#              self-update  (routed to devforge-cli:2.0 container)
 # Usage: ./devforge <command> [arguments]
 # ==============================================================================
 
@@ -22,6 +26,42 @@ print_success() {
 print_error() {
     echo -e "ERROR: $1"
 }
+
+# ==============================================================================
+# DEVFORGE v2 — CLI CONTAINER ROUTING
+# ==============================================================================
+CLI_IMAGE="devforge-cli:2.0"
+CLI_DOCKERFILE="docker/cli/Dockerfile"
+
+# Commands handled by the v2 Python CLI engine (inside container)
+V2_COMMANDS="new template plugin start stop generate use update self-update"
+
+if echo "$V2_COMMANDS" | grep -qw "$COMMAND"; then
+
+    # Auto-build: detect if CLI image exists, build it automatically if missing
+    if ! docker image inspect "$CLI_IMAGE" > /dev/null 2>&1; then
+        echo "[DevForge] CLI image '$CLI_IMAGE' not found. Building automatically..."
+        docker build -t "$CLI_IMAGE" -f "$CLI_DOCKERFILE" . --quiet
+        if [ $? -ne 0 ]; then
+            echo "[DevForge] ERROR: Failed to build CLI image. Is Docker running?"
+            exit 1
+        fi
+        echo "[DevForge] CLI image built successfully."
+    fi
+
+    # Run the CLI engine inside an ephemeral container
+    # --rm          : container auto-removes after command completes
+    # -it           : interactive terminal (required for questionary wizard)
+    # -v PWD        : mounts workspace so generated files appear on host
+    # -v docker.sock: allows the CLI to run docker compose commands
+    docker run --rm -it \
+        -v "${PWD}:/workspace" \
+        -v "/var/run/docker.sock:/var/run/docker.sock" \
+        "$CLI_IMAGE" "$@"
+
+    exit $?
+fi
+
 
 case "$COMMAND" in
     "up")

@@ -1,0 +1,19 @@
+name: postgres
+display_name: "PostgreSQL"
+version: "16.2"
+versions: ["15", "16", "17"]
+category: database
+description: "Production-grade relational database"
+depends_on: []
+ports:
+  - host: 5432
+    container: 5432
+    env_key: POSTGRES_PORT
+volumes:
+  - pgdata:/var/lib/postgresql/data
+env:
+  POSTGRES_DB: devforge_db
+  POSTGRES_USER: postgres_admin
+  POSTGRES_PASSWORD: SetSecurePasswordHere123!
+  POSTGRES_PORT: 5432
+image_base: devforge-base

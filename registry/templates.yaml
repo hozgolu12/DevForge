@@ -1,0 +1,96 @@
+# ==============================================================================
+# DEVFORGE v2 — TEMPLATE REGISTRY
+# ==============================================================================
+# Offline registry of all available project templates.
+# Used by: devforge template list
+# ==============================================================================
+
+templates:
+
+  # ── FRONTEND ─────────────────────────────────────────────────────────────────
+
+  - name: react
+    display_name: "React"
+    category: frontend
+    versions: ["18", "19"]
+    default_version: "18"
+    description: "React + Vite + TypeScript + Tailwind CSS + ESLint/Prettier"
+    path: templates/react
+
+  - name: nextjs
+    display_name: "Next.js"
+    category: frontend
+    versions: ["14", "15"]
+    default_version: "14"
+    description: "Next.js full-stack React framework with App Router"
+    path: templates/nextjs
+
+  # ── BACKEND / API ─────────────────────────────────────────────────────────────
+
+  - name: fastapi
+    display_name: "FastAPI"
+    category: backend
+    versions: ["0.110", "0.115"]
+    default_version: "0.115"
+    description: "FastAPI with async routers, structured logging, Pydantic v2"
+    path: templates/fastapi
+
+  - name: flask
+    display_name: "Flask"
+    category: backend
+    versions: ["3.0"]
+    default_version: "3.0"
+    description: "Flask microservice with Blueprints and config management"
+    path: templates/flask
+
+  - name: django
+    display_name: "Django"
+    category: backend
+    versions: ["5.0"]
+    default_version: "5.0"
+    description: "Django with modular settings, core app, REST ready"
+    path: templates/django
+
+  - name: express
+    display_name: "Express"
+    category: backend
+    versions: ["4.18"]
+    default_version: "4.18"
+    description: "Express.js REST API with TypeScript and nodemon"
+    path: templates/express
+
+  - name: nestjs
+    display_name: "NestJS"
+    category: backend
+    versions: ["10", "11"]
+    default_version: "10"
+    description: "NestJS structured Node.js framework with decorators"
+    path: templates/nestjs
+
+  - name: springboot
+    display_name: "Spring Boot"
+    category: backend
+    versions: ["3.2"]
+    default_version: "3.2"
+    description: "Spring Boot 3 with Java 21, Maven, REST starter"
+    path: templates/springboot
+
+  # ── MOBILE ───────────────────────────────────────────────────────────────────
+
+  - name: flutter
+    display_name: "Flutter"
+    category: mobile
+    versions: ["3.22"]
+    default_version: "3.22"
+    description: "Flutter mobile app with Android SDK, builds APK in container"
+    path: templates/flutter
+
+  # ── AI / ML ──────────────────────────────────────────────────────────────────
+
+  - name: ai
+    display_name: "AI Agent"
+    category: ai
+    versions: ["1.0"]
+    default_version: "1.0"
+    description: "LangChain / LlamaIndex agent with ChromaDB, Qdrant, Whisper, OCR"
+    path: templates/ai

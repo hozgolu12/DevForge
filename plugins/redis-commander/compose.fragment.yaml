@@ -1,0 +1,16 @@
+services:
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: "{{ project_name }}-redis-commander"
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8086}:8081"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    depends_on:
+      redis:
+        condition: service_healthy

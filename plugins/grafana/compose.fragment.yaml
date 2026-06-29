@@ -1,0 +1,23 @@
+services:
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: "{{ project_name }}-grafana"
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3002}:3000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    depends_on:
+      - prometheus
+
+volumes:
+  grafanadata:

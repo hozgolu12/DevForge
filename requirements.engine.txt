@@ -1,0 +1,12 @@
+# ==============================================================================
+# DEVFORGE ENGINE DEPENDENCIES
+# ==============================================================================
+# These are installed INSIDE the devforge-cli Docker container only.
+# No host installation required.
+# ==============================================================================
+
+click>=8.1.7
+questionary>=2.0.1
+PyYAML>=6.0.1
+Jinja2>=3.1.4
+rich>=13.7.1

@@ -1,0 +1,16 @@
+name: redis
+display_name: "Redis"
+version: "7.2"
+versions: ["7", "8"]
+category: cache
+description: "In-memory data structure store for caching and pub/sub"
+depends_on: []
+ports:
+  - host: 6379
+    container: 6379
+    env_key: REDIS_PORT
+volumes:
+  - redisdata:/data
+env:
+  REDIS_PASSWORD: SetSecurePasswordHere789!
+  REDIS_PORT: 6379

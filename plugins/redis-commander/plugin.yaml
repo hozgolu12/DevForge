@@ -1,0 +1,13 @@
+name: redis-commander
+display_name: "Redis Commander"
+version: "latest"
+versions: ["latest"]
+category: cache-ui
+description: "Web-based Redis management interface"
+depends_on: [redis]
+ports:
+  - host: 8086
+    container: 8081
+    env_key: REDIS_COMMANDER_PORT
+env:
+  REDIS_COMMANDER_PORT: 8086

@@ -1,0 +1,13 @@
+name: prometheus
+display_name: "Prometheus"
+version: "2.51"
+versions: ["2.51"]
+category: monitoring
+description: "Time-series metrics collection and alerting"
+depends_on: []
+ports:
+  - host: 9090
+    container: 9090
+    env_key: PROMETHEUS_PORT
+env:
+  PROMETHEUS_PORT: 9090

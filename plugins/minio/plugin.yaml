@@ -1,0 +1,21 @@
+name: minio
+display_name: "MinIO"
+version: "latest"
+versions: ["latest"]
+category: storage
+description: "S3-compatible object storage server"
+depends_on: []
+ports:
+  - host: 9000
+    container: 9000
+    env_key: MINIO_PORT
+  - host: 9001
+    container: 9001
+    env_key: MINIO_CONSOLE_PORT
+volumes:
+  - miniodata:/data
+env:
+  MINIO_ROOT_USER: admin
+  MINIO_ROOT_PASSWORD: minioadmin
+  MINIO_PORT: 9000
+  MINIO_CONSOLE_PORT: 9001

@@ -2,6 +2,10 @@
 # DEVFORGE PLATFORM POWERSHELL COMMAND LINE INTERFACE (CLI)
 # ==============================================================================
 # Native Windows PowerShell entrypoint to manage the DevForge local platform.
+# v1 commands: up, down, restart, status, logs, shell, create, doctor,
+#              backup, restore, seed, build-apk
+# v2 commands: new, template, plugin, start, stop, generate, use, update,
+#              self-update  (routed to devforge-cli:2.0 container)
 # Usage: .\devforge.ps1 <command> [arguments]
 # ==============================================================================
 
@@ -20,6 +24,47 @@ function Write-Success($text) {
 # Helper function to print error messages
 function Write-ErrorMsg($text) {
     Write-Host "ERROR: $text" -ForegroundColor Red
+}
+
+# ==============================================================================
+# DEVFORGE v2 — CLI CONTAINER ROUTING
+# ==============================================================================
+# V2 commands are routed to the devforge-cli:2.0 Docker container.
+# The container is built automatically if it does not exist.
+# All generated files are written to the mounted workspace on the host.
+# ==============================================================================
+
+$CLI_IMAGE   = "devforge-cli:2.0"
+$CLI_DOCKERFILE = "docker/cli/Dockerfile"
+
+# Commands handled by the v2 Python CLI engine (inside container)
+$V2_COMMANDS = @("new", "template", "plugin", "start", "stop", "generate", "use", "update", "self-update")
+
+if ($V2_COMMANDS -contains $command) {
+
+    # Auto-build: detect if CLI image exists, build it automatically if missing
+    $imageExists = docker image inspect $CLI_IMAGE 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[DevForge] CLI image '$CLI_IMAGE' not found. Building automatically..." -ForegroundColor Yellow
+        docker build -t $CLI_IMAGE -f $CLI_DOCKERFILE . --quiet
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[DevForge] ERROR: Failed to build CLI image. Is Docker running?" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "[DevForge] CLI image built successfully." -ForegroundColor Green
+    }
+
+    # Run the CLI engine inside an ephemeral container
+    # --rm          : container auto-removes after command completes
+    # -it           : interactive terminal (required for questionary wizard)
+    # -v PWD        : mounts workspace so generated files appear on host
+    # -v docker.sock: allows the CLI to run docker compose commands
+    docker run --rm -it `
+        -v "${PWD}:/workspace" `
+        -v "/var/run/docker.sock:/var/run/docker.sock" `
+        $CLI_IMAGE @args
+
+    exit $LASTEXITCODE
 }
 
 switch ($command) {

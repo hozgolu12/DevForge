@@ -1,0 +1,194 @@
+# ==============================================================================
+# DEVFORGE v2 — PLUGIN REGISTRY
+# ==============================================================================
+# Offline registry of all available plugins.
+# Used by: devforge plugin list
+# ==============================================================================
+
+plugins:
+
+  # ── DATABASES ──────────────────────────────────────────────────────────────
+
+  - name: postgres
+    display_name: "PostgreSQL"
+    category: database
+    versions: ["15", "16", "17"]
+    default_version: "16"
+    description: "Production-grade relational database"
+    path: plugins/postgres
+    docs: docs/database_platform.md
+
+  - name: mongodb
+    display_name: "MongoDB"
+    category: database
+    versions: ["6", "7", "8"]
+    default_version: "7"
+    description: "Document-oriented NoSQL database"
+    path: plugins/mongodb
+    docs: docs/database_platform.md
+
+  - name: neo4j
+    display_name: "Neo4j"
+    category: database
+    versions: ["5"]
+    default_version: "5"
+    description: "Graph database for connected data"
+    path: plugins/neo4j
+    docs: docs/database_platform.md
+
+  # ── DATABASE UIs ────────────────────────────────────────────────────────────
+
+  - name: pgadmin
+    display_name: "pgAdmin 4"
+    category: database-ui
+    versions: ["8.4"]
+    default_version: "8.4"
+    description: "Web-based PostgreSQL management interface"
+    depends_on: [postgres]
+    path: plugins/pgadmin
+
+  - name: mongo-express
+    display_name: "Mongo Express"
+    category: database-ui
+    versions: ["1.0.2"]
+    default_version: "1.0.2"
+    description: "Web-based MongoDB management interface"
+    depends_on: [mongodb]
+    path: plugins/mongo-express
+
+  - name: redis-commander
+    display_name: "Redis Commander"
+    category: cache-ui
+    versions: ["latest"]
+    default_version: "latest"
+    description: "Web-based Redis management interface"
+    depends_on: [redis]
+    path: plugins/redis-commander
+
+  # ── CACHE ────────────────────────────────────────────────────────────────────
+
+  - name: redis
+    display_name: "Redis"
+    category: cache
+    versions: ["7", "8"]
+    default_version: "7"
+    description: "In-memory data structure store"
+    path: plugins/redis
+    docs: docs/database_platform.md
+
+  # ── MESSAGING ────────────────────────────────────────────────────────────────
+
+  - name: rabbitmq
+    display_name: "RabbitMQ"
+    category: messaging
+    versions: ["3.12", "3.13"]
+    default_version: "3.13"
+    description: "AMQP message broker with management UI"
+    path: plugins/rabbitmq
+
+  # ── STORAGE ──────────────────────────────────────────────────────────────────
+
+  - name: minio
+    display_name: "MinIO"
+    category: storage
+    versions: ["latest"]
+    default_version: "latest"
+    description: "S3-compatible object storage server"
+    path: plugins/minio
+
+  # ── AI / LLM ─────────────────────────────────────────────────────────────────
+
+  - name: ollama
+    display_name: "Ollama"
+    category: ai
+    versions: ["latest"]
+    default_version: "latest"
+    description: "Local LLM runner (LLaMA, Mistral, Gemma, Phi)"
+    path: plugins/ollama
+
+  - name: open-webui
+    display_name: "Open WebUI"
+    category: ai-ui
+    versions: ["latest"]
+    default_version: "latest"
+    description: "Chat UI for Ollama models"
+    depends_on: [ollama]
+    path: plugins/open-webui
+
+  # ── VECTOR DATABASES ─────────────────────────────────────────────────────────
+
+  - name: chromadb
+    display_name: "ChromaDB"
+    category: vector-db
+    versions: ["0.4", "0.5"]
+    default_version: "0.5"
+    description: "Open-source embedding vector database"
+    path: plugins/chromadb
+
+  - name: qdrant
+    display_name: "Qdrant"
+    category: vector-db
+    versions: ["1.8", "1.9"]
+    default_version: "1.9"
+    description: "High-performance vector similarity search engine"
+    path: plugins/qdrant
+
+  # ── MONITORING ───────────────────────────────────────────────────────────────
+
+  - name: prometheus
+    display_name: "Prometheus"
+    category: monitoring
+    versions: ["2.51"]
+    default_version: "2.51"
+    description: "Metrics collection and alerting"
+    path: plugins/prometheus
+    docs: docs/observability_platform.md
+
+  - name: grafana
+    display_name: "Grafana"
+    category: monitoring
+    versions: ["10.4"]
+    default_version: "10.4"
+    description: "Metrics visualization and dashboards"
+    depends_on: [prometheus]
+    path: plugins/grafana
+    docs: docs/observability_platform.md
+
+  - name: loki
+    display_name: "Loki"
+    category: monitoring
+    versions: ["2.9", "3.0"]
+    default_version: "3.0"
+    description: "Log aggregation system by Grafana"
+    path: plugins/loki
+    docs: docs/observability_platform.md
+
+  - name: cadvisor
+    display_name: "cAdvisor"
+    category: monitoring
+    versions: ["0.49"]
+    default_version: "0.49"
+    description: "Container resource usage and performance metrics"
+    path: plugins/cadvisor
+    docs: docs/observability_platform.md
+
+  # ── PROXY / INGRESS ──────────────────────────────────────────────────────────
+
+  - name: nginx
+    display_name: "Nginx"
+    category: proxy
+    versions: ["1.24", "1.25"]
+    default_version: "1.25"
+    description: "Reverse proxy and ingress controller"
+    path: plugins/nginx
+
+  # ── AUTHENTICATION ───────────────────────────────────────────────────────────
+
+  - name: keycloak
+    display_name: "Keycloak"
+    category: auth
+    versions: ["23", "24"]
+    default_version: "24"
+    description: "Identity and access management (SSO, OAuth2, OIDC)"
+    depends_on: [postgres]
+    path: plugins/keycloak

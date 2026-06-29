@@ -1,0 +1,13 @@
+services:
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: "{{ project_name }}-loki"
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./docker/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    networks:
+      - devforge-network
+    logging: *default-logging

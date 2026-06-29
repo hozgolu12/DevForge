@@ -1,26 +1,78 @@
 # DevForge
 
-[![Docker Compose Validation](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/compose-validate.yml/badge.svg)](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/compose-validate.yml)
-[![Docker Build Validation](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/docker-build-validate.yml/badge.svg)](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/docker-build-validate.yml)
-[![Security Scan](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/security-scan.yml/badge.svg)](https://github.com/hozgolu12/Bus_Reservation_System/actions/workflows/security-scan.yml)
+[![Docker Compose Validation](https://github.com/hozgolu12/DevForge/actions/workflows/compose-validate.yml/badge.svg)](https://github.com/hozgolu12/DevForge/actions/workflows/compose-validate.yml)
+[![Docker Build Validation](https://github.com/hozgolu12/DevForge/actions/workflows/docker-build-validate.yml/badge.svg)](https://github.com/hozgolu12/DevForge/actions/workflows/docker-build-validate.yml)
+[![Security Scan](https://github.com/hozgolu12/DevForge/actions/workflows/security-scan.yml/badge.svg)](https://github.com/hozgolu12/DevForge/actions/workflows/security-scan.yml)
 
 > **One Docker Command. Unlimited Development.**
 
-DevForge is a production-grade, containerized developer platform designed to run all language environments, database clusters, and AI tools locally. The only requirements on the host machine are **Docker Desktop**, **Git**, and **VS Code**. No languages or databases need to be installed directly on your operating system.
+DevForge is a production-grade, modular, containerized developer platform. It runs all language runtimes, database clusters, AI tools, and monitoring stacks locally inside Docker. The only requirements on the host machine are **Docker Desktop**, **Git**, and **VS Code**. No languages, runtimes, or databases need to be installed on your operating system.
+
+---
+
+## What's New in v2
+
+DevForge v2 evolves from a static "everything on" platform into a **modular, project-aware developer platform** — comparable to tools like `create-next-app`, Yeoman, Cookiecutter, and Nx — while remaining 100% Docker-native.
+
+| Feature | v1 | v2 |
+|---|---|---|
+| Project creation | `devforge create <template>` | `devforge new <name>` — interactive wizard |
+| Compose strategy | Single monolithic file | Project-specific, only selected services |
+| Plugin system | ❌ | ✅ `devforge plugin install postgres@16` |
+| Template versioning | ❌ | ✅ `react@18`, `nestjs@11`, `fastapi@0.115` |
+| Service profiles | ❌ | ✅ `--profile dev/testing/production` |
+| Multi-project | ❌ | ✅ `devforge use socialcross` |
+| CLI engine | Shell scripts | Containerized Python engine (auto-built) |
+| Workspace manifest | ❌ | ✅ `devforge.json` per project |
+| v1 compatibility | — | ✅ All v1 commands unchanged |
 
 ---
 
 ## Overview
 
-DevForge isolates development tools into secure containers that work together out-of-the-box. Developers can build applications in React, Node, Python, Spring Boot, or AI ecosystems (Ollama, ChromaDB, Qdrant) without package manager conflicts, system path corruption, or version collisions.
+DevForge isolates all development tools into secure Docker containers that work together out-of-the-box. Developers can build applications in React, Node.js, Python, Java, Flutter, or AI/ML ecosystems (Ollama, LangChain, ChromaDB, Qdrant) without package manager conflicts, system path corruption, or version collisions.
+
+### Platform Capabilities
+
+| Pillar | What's included |
+|---|---|
+| 🧱 **Language Runtimes** | Node.js, Python, Java (JDK 21), Flutter / Android SDK |
+| 🗄️ **Database Cluster** | PostgreSQL, MongoDB, Redis, Neo4j + admin UIs |
+| 🤖 **AI / ML Ecosystem** | Ollama, Open WebUI, ChromaDB, Qdrant, LangChain, Whisper, OCR |
+| 📦 **Infrastructure** | Nginx, RabbitMQ, MinIO, Keycloak |
+| 📊 **Observability** | Prometheus, Grafana, Loki, cAdvisor |
+| 🔧 **CLI Engine** | Containerized v2 CLI + full v1 backward compatibility |
 
 ---
 
 ## Architecture
 
-DevForge is built using a modular, decoupled architecture where individual service instances are connected via an internal network. An Nginx Ingress Controller serves as the reverse proxy router for web frontends, dashboards, and APIs.
+DevForge v2 uses a two-layer architecture:
 
-For detailed design blueprints, check out the [Architecture Guide](file:///D:/coding/DevForge/docs/architecture.md).
+**Layer 1 — CLI Engine (ephemeral)**
+The `devforge-cli:2.0` Docker image runs as an ephemeral container for each command, mounts the workspace, generates files, then self-destructs via `--rm`. No background process remains.
+
+**Layer 2 — Project Services (persistent)**
+Each generated project gets its own `docker-compose.yml` containing only the services it selected. Services run persistently until explicitly stopped.
+
+```
+Host Machine  ──►  devforge.ps1 / devforge (thin wrapper)
+                          │
+                          ▼  docker run --rm -it
+               devforge-cli:2.0 (ephemeral)
+               ├── reads:  plugins/, registry/, templates/
+               └── writes: projects/<name>/
+                                ├── devforge.json
+                                ├── docker-compose.yml  (only selected services)
+                                ├── .env
+                                ├── .devforge/
+                                │   ├── generated/  (profile variants)
+                                │   ├── cache/
+                                │   └── logs/
+                                └── frontend/, backend/, mobile/
+```
+
+For detailed design blueprints, see the [Architecture Guide](docs/architecture.md).
 
 ---
 
@@ -28,43 +80,110 @@ For detailed design blueprints, check out the [Architecture Guide](file:///D:/co
 
 ```text
 DevForge/
-├── .devcontainer/             # VS Code Dev Container configurations
-│   ├── devcontainer.json      # Remote container workspace options
-│   ├── docker-compose.yml     # Dev container service definition
-│   └── Dockerfile             # Development container environment build
-├── .github/                   # CI/CD Workflows
-│   └── workflows/             # GitHub Actions files
+├── .devcontainer/                  # VS Code Dev Container configurations
+├── .github/                        # CI/CD GitHub Actions workflows
+│   └── workflows/
 │       ├── compose-validate.yml
 │       ├── docker-build-validate.yml
 │       ├── lint-validation.yml
+│       ├── sbom-generation.yml
 │       └── security-scan.yml
-├── docker/                    # Custom configurations and Dockerfiles
-│   ├── base/                  # Standard hardened base system image
-│   ├── chromadb/              # Chroma Vector Database settings
-│   ├── mongodb/               # MongoDB configuration and overrides
-│   ├── neo4j/                 # Neo4j Graph Database settings
-│   ├── nginx/                 # Nginx Ingress and Dashboard
-│   ├── ollama/                # Ollama LLM execution service
-│   ├── open-webui/            # Open WebUI frontend dashboard
-│   ├── postgres/              # PostgreSQL database custom settings
-│   ├── qdrant/                # Qdrant Vector search settings
-│   └── redis/                 # Redis Cache custom configuration
-├── docs/                      # Technical Documentation
-│   └── architecture.md
-├── projects/                  # Developer workspaces container mounts
-├── scripts/                   # Platform shell automation
-│   ├── backup.sh              # Database hot-backup routines
-│   ├── doctor.sh              # Host diagnostics validator
-│   ├── format.sh              # Line-ending converter and permissions
-│   ├── lint.sh                # Syntactic analysis checker
-│   └── restore.sh             # Database recovery routines
-├── templates/                 # Custom layout code structures
-├── .env.example               # Config template containing instructions
-├── docker-compose.override.yml# Local overrides
-├── docker-compose.yml         # Main compose service topology
-├── LICENSE                    # MIT License file
-├── Makefile                   # Execution scripts shortkeys
-└── README.md                  # This file
+│
+├── docker/                         # Custom Dockerfiles and service configs
+│   ├── cli/                        # NEW v2: devforge-cli image
+│   │   └── Dockerfile
+│   ├── base/                       # Hardened base image
+│   ├── nginx/                      # Nginx reverse proxy
+│   ├── postgres/                   # PostgreSQL
+│   ├── mongodb/                    # MongoDB
+│   ├── redis/                      # Redis
+│   ├── neo4j/                      # Neo4j graph database
+│   ├── ollama/                     # Ollama LLM runner
+│   ├── open-webui/                 # Open WebUI chat interface
+│   ├── chromadb/                   # ChromaDB vector database
+│   ├── qdrant/                     # Qdrant vector search
+│   ├── grafana/                    # Grafana dashboards
+│   ├── prometheus/                 # Prometheus metrics
+│   ├── loki/                       # Loki log aggregation
+│   ├── python/                     # Python runtime image
+│   ├── node/                       # Node.js runtime image
+│   ├── java/                       # JDK 21 + Maven image
+│   ├── flutter/                    # Flutter + Android SDK image
+│   └── ai/                         # AI/ML Python environment
+│
+├── engine/                         # NEW v2: CLI Python engine (runs inside container)
+│   ├── __init__.py
+│   ├── cli.py                      # Main Click CLI entry point
+│   ├── generator.py                # Interactive project wizard (devforge new)
+│   ├── composer.py                 # Compose generation from plugin fragments
+│   ├── template_engine.py          # Template management + versioning
+│   ├── plugin_manager.py           # Plugin lifecycle + versioning
+│   ├── workspace.py                # devforge.json + .devforge/ management
+│   └── service_manager.py          # Per-service start/stop/logs/shell
+│
+├── plugins/                        # NEW v2: Plugin definitions (19 plugins)
+│   ├── postgres/                   # plugin.yaml + compose.fragment.yaml
+│   ├── pgadmin/
+│   ├── mongodb/
+│   ├── mongo-express/
+│   ├── redis/
+│   ├── redis-commander/
+│   ├── neo4j/
+│   ├── rabbitmq/
+│   ├── minio/
+│   ├── ollama/
+│   ├── open-webui/
+│   ├── chromadb/
+│   ├── qdrant/
+│   ├── prometheus/
+│   ├── grafana/
+│   ├── loki/
+│   ├── cadvisor/
+│   ├── nginx/
+│   └── keycloak/
+│
+├── registry/                       # NEW v2: Offline plugin/template index
+│   ├── plugins.yaml                # Versioned plugin registry
+│   └── templates.yaml              # Versioned template registry
+│
+├── templates/                      # Code starter templates
+│   ├── react/                      # React + Vite + TypeScript + Tailwind
+│   ├── nextjs/                     # Next.js App Router
+│   ├── express/                    # Express.js REST API
+│   ├── nestjs/                     # NestJS framework
+│   ├── fastapi/                    # FastAPI + async routers
+│   ├── flask/                      # Flask microservice
+│   ├── django/                     # Django with core app
+│   ├── springboot/                 # Spring Boot 3 + JDK 21
+│   ├── flutter/                    # Flutter mobile app
+│   ├── ai/                         # AI/ML agent (LangChain, ChromaDB, Whisper)
+│   └── shared/                     # Shared ESLint / Prettier / tsconfig
+│
+├── projects/                       # Developer workspaces (generated projects live here)
+├── scripts/                        # Platform shell automation (v1)
+│   ├── backup.sh / restore.sh      # Database backup & recovery
+│   ├── db-backup.sh / db-restore.sh
+│   ├── db-seed.sh                  # Database seeding
+│   ├── doctor.sh                   # System diagnostics
+│   ├── lint.sh / format.sh
+│   ├── install-deps.sh
+│   └── create-*.sh                 # Per-template scaffold scripts (v1)
+│
+├── docs/                           # Technical documentation
+│   ├── architecture.md
+│   ├── cli_reference.md            # UPDATED: full v1 + v2 command reference
+│   ├── database_platform.md
+│   ├── node_platform.md
+│   ├── flutter_workflow.md
+│   └── observability_platform.md
+│
+├── docker-compose.yml              # v1 full-platform compose (unchanged)
+├── docker-compose.override.yml     # Local developer overrides
+├── requirements.engine.txt         # NEW v2: CLI engine Python deps (container-only)
+├── devforge                        # Bash CLI wrapper (Linux/macOS/Git Bash)
+├── devforge.ps1                    # PowerShell CLI wrapper (Windows)
+├── Makefile                        # Shortcut commands
+└── .env / .env.example             # Platform configuration
 ```
 
 ---
@@ -76,95 +195,326 @@ DevForge/
 * [Git](https://git-scm.com/)
 * [VS Code](https://code.visualstudio.com/) with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
 
-### Clone and Setup
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/hozgolu12/Bus_Reservation_System.git DevForge
-   cd DevForge
-   ```
-2. Initialize environment parameters:
-   ```bash
-   cp .env.example .env
-   ```
-3. Run diagnostics to verify system readiness:
-   ```powershell
-   # On Windows (PowerShell)
-   .\devforge.ps1 doctor
+That's it. No Python, Node.js, Java, Flutter, or any other runtime required on your host.
 
-   # On Linux/macOS/Git Bash
-   ./devforge doctor
-   ```
+### Clone and Setup
+```bash
+git clone https://github.com/hozgolu12/DevForge.git
+cd DevForge
+cp .env.example .env
+```
+
+### Run Diagnostics
+```powershell
+# Windows
+.\devforge.ps1 doctor
+
+# Linux / macOS / Git Bash
+./devforge doctor
+```
 
 ---
 
 ## Quick Start
 
-Start the complete environment using the unified CLI:
-```powershell
-# On Windows (PowerShell)
-.\devforge.ps1 up
+### Option A — v2: Create a New Project (Recommended)
 
-# On Linux/macOS/Git Bash
-./devforge up
+The interactive wizard generates a project with only the services you need:
+
+```powershell
+# Windows
+.\devforge.ps1 new socialcross
+
+# Linux / macOS
+./devforge new socialcross
 ```
 
-Once online, open your browser and navigate to:
-* **Developer Control Panel**: [http://localhost](http://localhost) (Nginx gateway status and proxy endpoints dashboard)
-* **Local AI Assistant**: [http://localhost:3000](http://localhost:3000) (Open WebUI connected to Ollama)
-* **Neo4j Graph Browser**: [http://localhost:7474](http://localhost:7474) (Neo4j browser tool)
-* **Qdrant Vector Console**: [http://localhost:6333/dashboard](http://localhost:6333/dashboard) (Qdrant storage browser)
+The wizard asks:
+
+| Step | Question |
+|---|---|
+| 1 | Project type (Full Stack / REST API / Microservices / AI Agent / RAG / Flutter / CLI) |
+| 2 | Frontend framework (React / Next.js / None) |
+| 3 | Backend framework (FastAPI / Django / NestJS / Spring Boot / ...) |
+| 4 | AI framework (LangChain / LlamaIndex / None) |
+| 5 | Database (PostgreSQL / MongoDB / Neo4j) |
+| 6 | Cache (Redis) |
+| 7 | Message queue (RabbitMQ) |
+| 8 | Vector database (ChromaDB / Qdrant) |
+| 9 | LLM runner (Ollama) |
+| 10 | Object storage (MinIO) |
+| 11 | Reverse proxy (Nginx) |
+| 12 | Monitoring (Prometheus + Grafana + Loki) |
+| 13 | Authentication (Keycloak) |
+| 14 | Mobile (Flutter) |
+| 15 | OCR / Speech Recognition |
+| 16 | CI/CD provider (GitHub Actions / GitLab CI) |
+
+Then start only your project's services:
+
+```powershell
+.\devforge.ps1 up --project socialcross
+.\devforge.ps1 up --project socialcross --profile production
+```
 
 ---
 
-## Docker Commands
+### Option B — v1: Start the Full Platform
 
-| Command | Action |
+Start all services at once (original behaviour, unchanged):
+
+```powershell
+.\devforge.ps1 up
+```
+
+Once running, open your browser:
+
+| Dashboard | URL |
 |---|---|
-| `make up` | Starts all platform containers in detached mode |
-| `make down` | Shuts down platform containers and networks |
-| `make restart` | Restarts all containers |
-| `make build` | Compiles custom Dockerfiles |
-| `make rebuild`| Re-compiles from scratch (bypassing caches) and restarts |
-| `make clean` | Shuts down containers, removes named volumes and networks |
-| `make logs` | Monitors console stdout for all active services |
-| `make status` | Queries execution metrics for active services |
-| `make shell` | Enters CLI terminal inside Nginx container (or `make shell SERVICE=postgres`) |
-| `make doctor` | Runs platform prerequisite verification |
-| `make backup` | Performs hot-backups on running databases |
-| `make restore` | Restores backup archives to active containers |
+| Nginx Developer Panel | http://localhost |
+| Local AI (Open WebUI) | http://localhost:3000 |
+| Neo4j Browser | http://localhost:7474 |
+| Qdrant Console | http://localhost:6333/dashboard |
+| pgAdmin | http://localhost:5050 |
+| Mongo Express | http://localhost:8087 |
+| Redis Commander | http://localhost:8086 |
+| Grafana | http://localhost:3002 |
+| Prometheus | http://localhost:9090 |
+
+---
+
+## CLI Commands
+
+### v2 Commands (New)
+
+```powershell
+# Project wizard
+devforge new <project-name>
+
+# Plugin management (with versioning)
+devforge plugin list
+devforge plugin install postgres
+devforge plugin install postgres@16
+devforge plugin remove mongodb
+
+# Template management (with versioning)
+devforge template list
+devforge template install react@18
+devforge generate fastapi auth-service
+
+# Per-service control
+devforge start mongodb
+devforge stop redis
+devforge restart fastapi
+devforge logs fastapi --tail 50
+devforge shell postgres
+
+# Project profiles
+devforge up --project socialcross --profile dev
+devforge up --project socialcross --profile production
+
+# Multi-project management
+devforge use socialcross
+devforge start mongodb --project socialcross
+
+# CLI self-update (rebuilds the CLI image)
+devforge update
+
+# Enhanced diagnostics
+devforge doctor
+devforge doctor --project socialcross
+```
+
+### v1 Commands (All Unchanged)
+
+```powershell
+devforge up              # Start all platform services
+devforge down            # Stop all platform services
+devforge restart [svc]   # Restart one or all services
+devforge status          # Show container status
+devforge logs <svc>      # Tail logs
+devforge shell <svc>     # Open shell in container
+devforge create <t> <n>  # Scaffold from v1 template
+devforge doctor          # System diagnostics
+devforge backup          # Backup all databases
+devforge restore <path>  # Restore from snapshot
+devforge seed            # Seed databases
+devforge build-apk       # Build Flutter APK
+```
+
+### Makefile Shortcuts
+
+| Target | Description |
+|---|---|
+| `make build-cli` | **NEW** Build `devforge-cli:2.0` image |
+| `make rebuild-cli` | **NEW** Rebuild CLI image from scratch |
+| `make up` | Start all v1 platform services |
+| `make down` | Stop all services |
+| `make build` | Build all custom Docker images |
+| `make rebuild` | Rebuild all images (no cache) |
+| `make clean` | Stop + remove all volumes |
+| `make logs` | Tail all service logs |
+| `make status` | Show container status |
+| `make doctor` | Run diagnostics |
+| `make backup` | Backup all databases |
+| `make restore` | Restore databases |
+| `make shell SERVICE=postgres` | Open shell in container |
+| `make create-react name=my-app` | Create React project (v1) |
+| `make create-fastapi name=my-api` | Create FastAPI project (v1) |
+| `make flutter-build-apk` | Build Flutter APK |
+
+---
+
+## Plugin System
+
+Plugins are self-contained service definitions under `plugins/`. Each has a manifest (`plugin.yaml`) and a Docker Compose snippet (`compose.fragment.yaml`).
+
+### Available Plugins
+
+| Plugin | Category | Versions |
+|---|---|---|
+| `postgres` | database | 15, **16**, 17 |
+| `mongodb` | database | 6, **7**, 8 |
+| `neo4j` | database | **5** |
+| `pgadmin` | database-ui | 8.4 |
+| `mongo-express` | database-ui | 1.0.2 |
+| `redis` | cache | **7**, 8 |
+| `redis-commander` | cache-ui | latest |
+| `rabbitmq` | messaging | 3.12, **3.13** |
+| `minio` | storage | latest |
+| `ollama` | ai | latest |
+| `open-webui` | ai-ui | latest |
+| `chromadb` | vector-db | 0.4, **0.5** |
+| `qdrant` | vector-db | 1.8, **1.9** |
+| `prometheus` | monitoring | **2.51** |
+| `grafana` | monitoring | **10.4** |
+| `loki` | monitoring | 2.9, **3.0** |
+| `cadvisor` | monitoring | **0.49** |
+| `nginx` | proxy | 1.24, **1.25** |
+| `keycloak` | auth | 23, **24** |
+
+*Bold = default version*
+
+---
+
+## Workspace Manifest
+
+Every v2 project contains a `devforge.json` manifest:
+
+```json
+{
+  "name": "socialcross",
+  "version": "1.0.0",
+  "devforge_version": "2.0.0",
+  "created_at": "2026-06-29T13:00:00Z",
+  "project_type": "Full Stack Application",
+  "frameworks": {
+    "frontend": "react",
+    "backend": "fastapi",
+    "ai": "langchain",
+    "mobile": null
+  },
+  "plugins": ["postgres", "redis", "ollama", "qdrant", "nginx"],
+  "plugin_versions": { "postgres": "16" },
+  "ports": {
+    "react": 5173,
+    "fastapi": 8081,
+    "postgres": 5432,
+    "redis": 6379
+  },
+  "ci_cd": "github-actions",
+  "active_profile": "dev"
+}
+```
+
+DevForge uses this manifest to manage all project operations — no manual compose editing required.
+
+---
+
+## Service Profiles
+
+Each generated project includes three profile-specific compose files:
+
+| Profile | File | Use case |
+|---|---|---|
+| `dev` (default) | `docker-compose.yml` | Hot-reload, debug logging, relaxed security |
+| `testing` | `.devforge/generated/docker-compose.testing.yml` | CI pipelines, test isolation |
+| `production` | `.devforge/generated/docker-compose.production.yml` | `restart: always`, minimal logging, strict security |
+
+```powershell
+.\devforge.ps1 up --project socialcross --profile dev
+.\devforge.ps1 up --project socialcross --profile production
+```
 
 ---
 
 ## Networking
 
-All containers are isolated within the `devforge-network` bridge. Inter-service database calls do not go through host ports, they communicate internally:
-* PostgreSQL connection URI: `postgresql://postgres_admin:password@postgres:5432/devforge_db`
-* MongoDB connection URI: `mongodb://mongo_admin:password@mongodb:27017`
-* Redis connection URI: `redis://:password@redis:6379`
-* ChromaDB API endpoint: `http://chromadb:8000`
-* Ollama API endpoint: `http://ollama:11434`
+All containers communicate on an internal Docker bridge — no host ports needed for inter-service calls:
+
+```
+# v1 platform network
+devforge-network
+
+# v2 project network (isolated per project)
+devforge-<project-name>-network
+```
+
+Internal connection strings (use inside containers):
+
+| Service | URI |
+|---|---|
+| PostgreSQL | `postgresql://postgres_admin:password@postgres:5432/devforge_db` |
+| MongoDB | `mongodb://mongo_admin:password@mongodb:27017` |
+| Redis | `redis://:password@redis:6379` |
+| ChromaDB | `http://chromadb:8000` |
+| Qdrant | `http://qdrant:6333` |
+| Ollama | `http://ollama:11434` |
+| RabbitMQ | `amqp://admin:admin@rabbitmq:5672` |
 
 ---
 
-## Volumes
+## Persistent Volumes
 
-To prevent data loss, the following persistent named volumes are registered:
-* `devforge_pgdata` - PostgreSQL databases
-* `devforge_mongodata` - MongoDB files
-* `devforge_redisdata` - Redis snapshots
-* `devforge_neo4jdata` - Graph datasets
-* `devforge_qdrantdata` - Vector indexes
-* `devforge_chromadata` - Chroma DB files
-* `devforge_ollamadata` - Large Language Model files
+Named Docker volumes prevent data loss across restarts:
+
+| Volume | Data |
+|---|---|
+| `pgdata` | PostgreSQL databases |
+| `mongodata` | MongoDB files |
+| `redisdata` | Redis snapshots |
+| `neo4jdata` | Neo4j graph data |
+| `qdrantdata` | Qdrant vector indexes |
+| `chromadata` | ChromaDB embeddings |
+| `ollamadata` | Downloaded LLM models |
+| `grafanadata` | Grafana dashboards |
+| `miniodata` | MinIO object storage |
+| `webuidata` | Open WebUI sessions |
 
 ---
 
 ## Environment Variables
 
-All parameters are configured in the active `.env` file. Groupings include:
-* **Ingress**: `NGINX_PORT`, `NGINX_SECURE_PORT`
-* **Databases**: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD`, `REDIS_PASSWORD`, `NEO4J_AUTH`
-* **AI & Indexes**: `QDRANT_API_KEY`, `CHROMA_AUTH_TOKEN`, `OLLAMA_MODELS_PATH`
+All parameters are configured in `.env`. Copy from `.env.example` before first run:
+
+```bash
+cp .env.example .env
+```
+
+Key groups:
+
+| Group | Variables |
+|---|---|
+| Ingress | `NGINX_PORT`, `NGINX_SECURE_PORT` |
+| PostgreSQL | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` |
+| MongoDB | `MONGO_INITDB_ROOT_USERNAME`, `MONGO_INITDB_ROOT_PASSWORD`, `MONGO_PORT` |
+| Redis | `REDIS_PASSWORD`, `REDIS_PORT` |
+| Neo4j | `NEO4J_AUTH`, `NEO4J_PORT_HTTP`, `NEO4J_PORT_BOLT` |
+| AI | `QDRANT_API_KEY`, `CHROMA_AUTH_TOKEN`, `OLLAMA_MODELS_PATH`, `WEBUI_SECRET_KEY` |
+| Monitoring | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`, `PROMETHEUS_PORT` |
+| Storage | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` |
+| Messaging | `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
+| Auth | `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` |
 
 ---
 
@@ -172,30 +522,62 @@ All parameters are configured in the active `.env` file. Groupings include:
 
 ### Port Collision
 **Error**: `Bind for 0.0.0.0:80 failed: port is already allocated.`
-**Fix**: Edit the `.env` file and modify the port values (e.g., change `NGINX_PORT=80` to `NGINX_PORT=8080`). Run `make up` again.
+**Fix**: Edit `.env` and change `NGINX_PORT=80` to a free port (e.g., `8080`). Run `make up` again.
 
 ### Database Credentials Refused
 **Error**: `FATAL: password authentication failed for user "postgres_admin"`
-**Fix**: If you changed database passwords in `.env` after databases have already been initialized, the volume data still holds the old passwords. Reset the volume data using `make clean` (WARNING: this deletes all database data) and restart.
+**Fix**: If you changed passwords in `.env` after the volume was initialized, the old credentials are stored in the volume. Reset with `make clean` (**destructive** — deletes all data) and restart.
+
+### CLI Image Not Found
+**Error**: `Unable to find image 'devforge-cli:2.0'`
+**Fix**: This should auto-build on first use. If it fails, build manually:
+```powershell
+make build-cli
+```
+
+### v2 Wizard Hangs / Not Interactive
+**Cause**: Running inside a non-TTY shell (e.g., CI pipeline without `-it`).
+**Fix**: Add `--no-interactive` flag:
+```powershell
+.\devforge.ps1 new my-project --no-interactive
+```
+
+### GPU Not Detected by Ollama
+**Fix**: Open `docker-compose.override.yml`, find the `ollama` section, and uncomment the `deploy.resources.reservations` block to enable Nvidia GPU pass-through.
 
 ---
 
 ## FAQ
 
-#### Can I use GPUs with Ollama?
-Yes. Open `docker-compose.override.yml`, find the `ollama` section, and uncomment the `deploy.resources.reservations` section to enable Nvidia GPU pass-through.
+#### Does v2 break my existing v1 setup?
+No. All v1 commands (`up`, `down`, `create`, `doctor`, `backup`, etc.) work exactly as before. The existing `docker-compose.yml` is untouched.
 
-#### Where do I put my source code?
-Store your project files under the `projects/` directory. You can mount folders into custom future containers mapped in your `docker-compose.override.yml`.
+#### Where does my source code live?
+- **v1**: `projects/` directory (mounted into containers via the root compose)
+- **v2**: `projects/<project-name>/` (generated per project with its own compose)
+
+#### Can I use GPU with Ollama?
+Yes. Uncomment the `deploy.resources.reservations` section in `docker-compose.override.yml` (v1) or in the generated project's compose (v2).
+
+#### How do I add a new service to an existing v2 project?
+```powershell
+.\devforge.ps1 plugin install rabbitmq --project socialcross
+```
+The compose file regenerates automatically.
+
+#### How do I update the DevForge CLI?
+```powershell
+.\devforge.ps1 update
+```
 
 ---
 
 ## Contribution Guide
 
-1. Create a development branch from `main`.
-2. Ensure changes comply with lint and security protocols by running `make lint` and `make doctor`.
-3. Format shell files using `make format`.
-4. Open a Pull Request detailing your enhancements.
+1. Create a branch from `main`.
+2. Run `make lint` and `make doctor` before committing.
+3. Format shell scripts with `make format`.
+4. Open a Pull Request with a clear description of your changes.
 
 ---
 
@@ -205,10 +587,23 @@ Store your project files under the `projects/` directory. You can mount folders 
 * [x] Add Python/FastAPI backend blueprints
 * [x] Add AI/ML development ecosystem (PyTorch, TensorFlow, LangChain, OCR, Whisper)
 * [x] Add Java/Spring Boot development environment (JDK 21, Maven, Gradle)
-* [x] Add Flutter/Android mobile application environment (SDK 34, Build Tools, stable Flutter SDK)
-* [x] Deploy database admin dashboards (pgAdmin, Mongo Express, Redis Commander) and backup automations
-* [x] Integrate observability stack (Prometheus, Grafana, Loki, cAdvisor) and middleware (MinIO, RabbitMQ)
-* [x] Develop unified developer platform CLI (devforge.ps1 and devforge script commands)
-* [x] Harden production deployments (Trivy scans, Docker build validation matrix, SBOM JSON generation)
+* [x] Add Flutter/Android mobile application environment
+* [x] Deploy database admin dashboards (pgAdmin, Mongo Express, Redis Commander)
+* [x] Integrate observability stack (Prometheus, Grafana, Loki, cAdvisor)
+* [x] Add middleware (MinIO, RabbitMQ)
+* [x] Develop unified CLI (devforge.ps1 and devforge)
+* [x] Harden production deployments (Trivy, SBOM, Docker build validation)
+* [x] **v2: Containerized CLI engine (no host Python required)**
+* [x] **v2: Interactive project generator with 17-step wizard**
+* [x] **v2: Plugin system with versioning (19 plugins)**
+* [x] **v2: Template versioning (react@18, nestjs@11, fastapi@0.115)**
+* [x] **v2: Project-specific compose generation**
+* [x] **v2: Service profiles (dev / testing / production)**
+* [x] **v2: Multi-project management (devforge use)**
+* [x] **v2: Workspace manifest (devforge.json)**
+* [x] **v2: Auto CLI image build on first use**
+* [x] **v2: Enhanced doctor with 12+ health checks**
 * [ ] Deploy SSL routing in local gateway configurations
 * [ ] Setup local Docker Registry cache
+* [ ] Remote plugin registry (pull plugins from GitHub)
+* [ ] DevForge Cloud Sync (share manifests across team)

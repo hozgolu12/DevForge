@@ -1,0 +1,15 @@
+name: keycloak
+display_name: "Keycloak"
+version: "24.0"
+versions: ["23", "24"]
+category: auth
+description: "Open-source identity and access management (SSO, OAuth2, OIDC)"
+depends_on: [postgres]
+ports:
+  - host: 8085
+    container: 8080
+    env_key: KEYCLOAK_PORT
+env:
+  KEYCLOAK_PORT: 8085
+  KEYCLOAK_ADMIN: admin
+  KEYCLOAK_ADMIN_PASSWORD: admin

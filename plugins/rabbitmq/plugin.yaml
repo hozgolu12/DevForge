@@ -1,0 +1,19 @@
+name: rabbitmq
+display_name: "RabbitMQ"
+version: "3.13"
+versions: ["3.12", "3.13"]
+category: messaging
+description: "AMQP message broker with management UI"
+depends_on: []
+ports:
+  - host: 5672
+    container: 5672
+    env_key: RABBITMQ_PORT
+  - host: 15672
+    container: 15672
+    env_key: RABBITMQ_MANAGEMENT_PORT
+env:
+  RABBITMQ_USER: admin
+  RABBITMQ_PASSWORD: admin
+  RABBITMQ_PORT: 5672
+  RABBITMQ_MANAGEMENT_PORT: 15672

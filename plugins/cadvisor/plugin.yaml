@@ -1,0 +1,13 @@
+name: cadvisor
+display_name: "cAdvisor"
+version: "0.49"
+versions: ["0.49"]
+category: monitoring
+description: "Container resource usage and performance metrics"
+depends_on: []
+ports:
+  - host: 8089
+    container: 8080
+    env_key: CADVISOR_PORT
+env:
+  CADVISOR_PORT: 8089

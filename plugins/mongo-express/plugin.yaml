@@ -1,0 +1,15 @@
+name: mongo-express
+display_name: "Mongo Express"
+version: "1.0.2"
+versions: ["1.0.2"]
+category: database-ui
+description: "Web-based MongoDB management interface"
+depends_on: [mongodb]
+ports:
+  - host: 8087
+    container: 8081
+    env_key: MONGO_EXPRESS_PORT
+env:
+  MONGO_EXPRESS_PORT: 8087
+  MONGO_EXPRESS_USER: admin
+  MONGO_EXPRESS_PASSWORD: admin

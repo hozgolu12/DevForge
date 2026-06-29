@@ -1,0 +1,16 @@
+name: open-webui
+display_name: "Open WebUI"
+version: "latest"
+versions: ["latest"]
+category: ai-ui
+description: "Chat interface for Ollama LLM models"
+depends_on: [ollama]
+ports:
+  - host: 3000
+    container: 8080
+    env_key: OPEN_WEBUI_PORT
+volumes:
+  - webuidata:/app/backend/data
+env:
+  OPEN_WEBUI_PORT: 3000
+  WEBUI_SECRET_KEY: ReplaceWithLongRandomSecureSecretKeyString

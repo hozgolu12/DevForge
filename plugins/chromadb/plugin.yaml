@@ -1,0 +1,16 @@
+name: chromadb
+display_name: "ChromaDB"
+version: "0.5"
+versions: ["0.4", "0.5"]
+category: vector-db
+description: "Open-source embedding vector database"
+depends_on: []
+ports:
+  - host: 8000
+    container: 8000
+    env_key: CHROMA_PORT
+volumes:
+  - chromadata:/chroma/data
+env:
+  CHROMA_PORT: 8000
+  CHROMA_AUTH_TOKEN: SetSecureAuthTokenHere888!

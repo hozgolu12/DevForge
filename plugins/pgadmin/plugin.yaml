@@ -1,0 +1,15 @@
+name: pgadmin
+display_name: "pgAdmin 4"
+version: "8.4"
+versions: ["8.4"]
+category: database-ui
+description: "Web-based PostgreSQL management interface"
+depends_on: [postgres]
+ports:
+  - host: 5050
+    container: 80
+    env_key: PGADMIN_PORT
+env:
+  PGADMIN_DEFAULT_EMAIL: admin@devforge.local
+  PGADMIN_DEFAULT_PASSWORD: admin
+  PGADMIN_PORT: 5050

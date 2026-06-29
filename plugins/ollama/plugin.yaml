@@ -1,0 +1,16 @@
+name: ollama
+display_name: "Ollama"
+version: "latest"
+versions: ["latest"]
+category: ai
+description: "Local large language model runner (LLaMA, Mistral, Gemma, etc.)"
+depends_on: []
+ports:
+  - host: 11434
+    container: 11434
+    env_key: OLLAMA_PORT
+volumes:
+  - ollamadata:/root/.ollama
+env:
+  OLLAMA_PORT: 11434
+  OLLAMA_MODELS_PATH: /root/.ollama

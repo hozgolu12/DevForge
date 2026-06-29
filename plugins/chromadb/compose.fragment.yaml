@@ -1,0 +1,30 @@
+services:
+  chromadb:
+    build:
+      context: ./docker/chromadb
+      dockerfile: Dockerfile
+    container_name: "{{ project_name }}-chromadb"
+    restart: unless-stopped
+    environment:
+      CHROMA_SERVER_AUTH_PROVIDER: "chromadb.auth.token.TokenAuthenticationProvider"
+      CHROMA_SERVER_AUTH_CREDENTIALS: ${CHROMA_AUTH_TOKEN}
+      CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER: "chromadb.auth.token.TokenConfigCredentialsProvider"
+      PERSIST_DIRECTORY: "/chroma/data"
+    volumes:
+      - chromadata:/chroma/data
+    ports:
+      - "${CHROMA_PORT:-8000}:8000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  chromadata:

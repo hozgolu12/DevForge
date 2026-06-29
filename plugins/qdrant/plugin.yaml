@@ -1,0 +1,20 @@
+name: qdrant
+display_name: "Qdrant"
+version: "1.9"
+versions: ["1.8", "1.9"]
+category: vector-db
+description: "High-performance vector similarity search engine"
+depends_on: []
+ports:
+  - host: 6333
+    container: 6333
+    env_key: QDRANT_PORT
+  - host: 6334
+    container: 6334
+    env_key: QDRANT_GRPC_PORT
+volumes:
+  - qdrantdata:/qdrant/storage
+env:
+  QDRANT_API_KEY: SetSecureApiKeyHere999!
+  QDRANT_PORT: 6333
+  QDRANT_GRPC_PORT: 6334
