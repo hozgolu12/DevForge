@@ -20,16 +20,46 @@ console = Console()
 
 # Path mappings (inside the container, /workspace = host DevForge root)
 WORKSPACE_ROOT = Path("/workspace")
-PROJECTS_DIR = WORKSPACE_ROOT / "projects"
-GLOBAL_STATE_FILE = WORKSPACE_ROOT / ".devforge" / "active_project"
+
+def get_devforge_root() -> Path:
+    """
+    Returns the DevForge root directory.
+    If /devforge is mounted, we are running CLI in a project workspace, so the platform
+    files are under /devforge.
+    Otherwise, we fall back to /workspace.
+    """
+    df_root = Path("/devforge")
+    if df_root.exists():
+        return df_root
+    return Path("/workspace")
+
+PROJECTS_DIR = get_devforge_root() / "projects"
+GLOBAL_STATE_FILE = get_devforge_root() / ".devforge" / "active_project"
 
 
 class Project:
     """Represents a DevForge v2 project with its manifest and paths."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, path: Optional[Path] = None):
         self.name = name
-        self.path = PROJECTS_DIR / name
+        if path:
+            self.path = path
+        else:
+            # Check if the current /workspace matches this project name and has devforge.json
+            workspace_manifest = WORKSPACE_ROOT / "devforge.json"
+            if workspace_manifest.exists():
+                try:
+                    with open(workspace_manifest) as f:
+                        data = json.load(f)
+                    if data.get("name") == name:
+                        self.path = WORKSPACE_ROOT
+                    else:
+                        self.path = PROJECTS_DIR / name
+                except Exception:
+                    self.path = PROJECTS_DIR / name
+            else:
+                self.path = PROJECTS_DIR / name
+
         self.manifest_path = self.path / "devforge.json"
         self.devforge_dir = self.path / ".devforge"
         self.generated_dir = self.devforge_dir / "generated"
@@ -138,6 +168,19 @@ class WorkspaceManager:
         Resolve a project by name, falling back to the active project.
         If required=True and no project can be found, exits with an error.
         """
+        workspace_manifest = WORKSPACE_ROOT / "devforge.json"
+        
+        # If no project name specified, and we're inside a project workspace, resolve to it
+        if not name and workspace_manifest.exists():
+            try:
+                with open(workspace_manifest) as f:
+                    data = json.load(f)
+                project_name = data.get("name")
+                if project_name:
+                    return Project(project_name, path=WORKSPACE_ROOT)
+            except Exception:
+                pass
+
         project_name = name or self.get_active_project()
 
         if not project_name:
@@ -149,6 +192,16 @@ class WorkspaceManager:
                 )
                 raise SystemExit(1)
             return None
+
+        # Check if the project name matches the workspace project name
+        if workspace_manifest.exists():
+            try:
+                with open(workspace_manifest) as f:
+                    data = json.load(f)
+                if data.get("name") == project_name:
+                    return Project(project_name, path=WORKSPACE_ROOT)
+            except Exception:
+                pass
 
         project = Project(project_name)
         if required and not project.path.exists():

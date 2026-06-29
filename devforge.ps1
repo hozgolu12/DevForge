@@ -38,7 +38,7 @@ $CLI_IMAGE   = "devforge-cli:2.0"
 $CLI_DOCKERFILE = "docker/cli/Dockerfile"
 
 # Commands handled by the v2 Python CLI engine (inside container)
-$V2_COMMANDS = @("new", "template", "plugin", "start", "stop", "generate", "use", "update", "self-update")
+$V2_COMMANDS = @("new", "template", "plugin", "start", "stop", "generate", "use", "update", "self-update", "init", "import", "detect")
 
 if ($V2_COMMANDS -contains $command) {
 
@@ -54,6 +54,23 @@ if ($V2_COMMANDS -contains $command) {
         Write-Host "[DevForge] CLI image built successfully." -ForegroundColor Green
     }
 
+    # Resolve DevForge root directory (where this script resides)
+    $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+    if (-not $DEVFORGE_ROOT) {
+        $DEVFORGE_ROOT = $PSScriptRoot
+    }
+
+    # Handle import volume mapping
+    $importVolumeOpts = @()
+    if ($command -eq "import" -and $args.Count -ge 2) {
+        $importPath = $args[1]
+        $absImportPath = Resolve-Path $importPath -ErrorAction SilentlyContinue
+        if ($absImportPath) {
+            $absImportPathString = $absImportPath.Path
+            $importVolumeOpts = @("-v", "${absImportPathString}:/import_target")
+        }
+    }
+
     # Run the CLI engine inside an ephemeral container
     # --rm          : container auto-removes after command completes
     # -it           : interactive terminal (required for questionary wizard)
@@ -61,6 +78,8 @@ if ($V2_COMMANDS -contains $command) {
     # -v docker.sock: allows the CLI to run docker compose commands
     docker run --rm -it `
         -v "${PWD}:/workspace" `
+        $importVolumeOpts `
+        -v "${DEVFORGE_ROOT}:/devforge" `
         -v "/var/run/docker.sock:/var/run/docker.sock" `
         $CLI_IMAGE @args
 

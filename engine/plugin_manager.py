@@ -16,12 +16,12 @@ from rich.console import Console
 from rich.table import Table
 from rich import box
 
-from engine.workspace import Project, WORKSPACE_ROOT
+from engine.workspace import Project, get_devforge_root
 
 console = Console()
 
-PLUGINS_DIR = WORKSPACE_ROOT / "plugins"
-REGISTRY_FILE = WORKSPACE_ROOT / "registry" / "plugins.yaml"
+PLUGINS_DIR = get_devforge_root() / "plugins"
+REGISTRY_FILE = get_devforge_root() / "registry" / "plugins.yaml"
 
 
 def _parse_spec(spec: str) -> tuple[str, Optional[str]]:

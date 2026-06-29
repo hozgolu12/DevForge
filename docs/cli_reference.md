@@ -56,6 +56,29 @@ projects/<name>/
 
 ---
 
+### Project Onboarding & Detection
+
+#### `init [--no-interactive]`
+Initializes the CURRENT directory as a DevForge project. Automatically runs the Detection Engine to identify technologies, prompts for Dockerfile and Compose action handling, validates configurations, and generates DevForge workspace files in-place.
+```powershell
+cd SocialCross
+.\devforge.ps1 init
+```
+
+#### `import <path> [--no-interactive]`
+Imports an existing project from another directory (`<path>`) on the host. Copies the project source code to `projects/<name>` (excluding massive folders like `node_modules` and `.git`), runs the Detection Engine, validates the configuration, prompts for Dockerfile/Compose handling, and initializes it inside the DevForge workspace.
+```powershell
+.\devforge.ps1 import D:\Projects\SocialCross
+```
+
+#### `detect`
+Analyzes the current project's codebase, identifies all frameworks, databases, caches, AI libraries, messaging queues, and container setups without modifying any files on disk. Prints a clean checklist of detected technologies and recommendations.
+```powershell
+.\devforge.ps1 detect
+```
+
+---
+
 ### Template Management
 
 #### `template list [--category <category>]`

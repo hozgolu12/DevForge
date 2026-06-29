@@ -64,6 +64,9 @@ def cli(ctx):
     \b
     V2 Commands (project-aware):
       new          Create a new project interactively
+      init         Initialize the CURRENT directory as a DevForge project
+      import       Import an existing project from another directory
+      detect       Analyze the current project without modifying any files
       template     Manage code templates
       plugin       Manage service plugins
       start        Start a specific service
@@ -108,6 +111,145 @@ def cmd_new(project_name, no_interactive):
     from engine.generator import ProjectGenerator
     generator = ProjectGenerator()
     generator.run(project_name, interactive=not no_interactive)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# V2 COMMAND: init
+# ──────────────────────────────────────────────────────────────────────────────
+
+@cli.command("init")
+@click.option("--no-interactive", is_flag=True, help="Skip wizard, use defaults")
+def cmd_init(no_interactive):
+    """Initialize the CURRENT directory as a DevForge project.
+
+    \b
+    Example:
+      cd SocialCross
+      devforge init
+    """
+    import re
+    from pathlib import Path
+    from engine.generator import ProjectGenerator
+    
+    workspace_root = Path("/workspace")
+    raw_name = workspace_root.name
+    project_name = re.sub(r'[^a-zA-Z0-9_-]', '', raw_name).lower()
+    
+    generator = ProjectGenerator()
+    generator.onboard(project_name, workspace_root, interactive=not no_interactive)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# V2 COMMAND: import
+# ──────────────────────────────────────────────────────────────────────────────
+
+@cli.command("import")
+@click.argument("import_path")
+@click.option("--no-interactive", is_flag=True, help="Skip wizard, use defaults")
+def cmd_import(import_path, no_interactive):
+    """Import an existing project from another directory.
+
+    \b
+    Example:
+      devforge import D:\\Projects\\SocialCross
+    """
+    import re
+    import shutil
+    from pathlib import Path
+    from engine.workspace import PROJECTS_DIR
+    from engine.generator import ProjectGenerator
+
+    import_target = Path("/import_target")
+    if import_target.exists() and import_target.is_dir():
+        src_dir = import_target
+    else:
+        src_dir = Path("/workspace") / import_path
+        if not src_dir.exists():
+            console.print(f"[red]✗ Import path '{import_path}' not found.[/red]")
+            raise SystemExit(1)
+
+    raw_name = src_dir.name
+    project_name = re.sub(r'[^a-zA-Z0-9_-]', '', raw_name).lower()
+
+    target_dir = PROJECTS_DIR / project_name
+    if target_dir.exists():
+        console.print(f"[red]✗ Project '{project_name}' already exists in projects/ directory.[/red]")
+        raise SystemExit(1)
+
+    console.print(f"[cyan]Copying project to projects/{project_name}...[/cyan]")
+    ignore_patterns = shutil.ignore_patterns(
+        '.git', 'node_modules', '.venv', 'venv', 'env', '.devforge', 'build', 'dist', 'target', 'bin', 'obj'
+    )
+    shutil.copytree(src_dir, target_dir, ignore=ignore_patterns, dirs_exist_ok=True)
+
+    generator = ProjectGenerator()
+    generator.onboard(project_name, target_dir, interactive=not no_interactive)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# V2 COMMAND: detect
+# ──────────────────────────────────────────────────────────────────────────────
+
+@cli.command("detect")
+def cmd_detect():
+    """Analyze the current project without modifying any files."""
+    from pathlib import Path
+    from engine.detection import DetectionEngine
+
+    workspace_root = Path("/workspace")
+    detected = DetectionEngine.detect(workspace_root, force=True)
+
+    # Output detected technologies in the exact requested format
+    for category in ["Frontend", "Backend", "Mobile", "Database", "Cache", "Vector Database"]:
+        techs = detected.get(category, {})
+        if techs:
+            console.print(f"[bold]{category}[/bold]")
+            for tech in techs.keys():
+                console.print(f"✓ {tech}")
+            console.print("")
+
+    # Separate AI and OCR
+    ai_techs = dict(detected.get("AI", {}))
+    has_tesseract = ai_techs.pop("Tesseract", False)
+
+    if ai_techs:
+        console.print("[bold]AI[/bold]")
+        for tech in ai_techs.keys():
+            console.print(f"✓ {tech}")
+        console.print("")
+
+    if has_tesseract:
+        console.print("[bold]OCR[/bold]")
+        console.print("✓ Tesseract")
+        console.print("")
+
+    for category in ["Messaging", "Monitoring", "Storage"]:
+        techs = detected.get(category, {})
+        if techs:
+            console.print(f"[bold]{category}[/bold]")
+            for tech in techs.keys():
+                console.print(f"✓ {tech}")
+            console.print("")
+
+    if "Docker" in detected and detected["Docker"]:
+        console.print("[bold]Docker[/bold]")
+        for df in detected["Docker"].keys():
+            console.print(f"✓ {df}")
+        console.print("")
+
+    if "Package Managers" in detected and detected["Package Managers"]:
+        console.print("[bold]Package Managers[/bold]")
+        for pm in detected["Package Managers"].keys():
+            console.print(f"✓ {pm}")
+        console.print("")
+
+    if detected.get("Recommendations"):
+        console.print("[bold]Recommendations[/bold]\n")
+        for rec in detected["Recommendations"]:
+            console.print(f"- {rec}")
+        console.print("")
+
+    console.print("No files modified.")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

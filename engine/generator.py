@@ -8,9 +8,12 @@
 
 from __future__ import annotations
 
+import json
+import re
 import shutil
 from pathlib import Path
 from typing import Optional
+import yaml
 
 import questionary
 from questionary import Style
@@ -20,6 +23,8 @@ from rich import box
 
 from engine.workspace import WorkspaceManager, Project, WORKSPACE_ROOT, PROJECTS_DIR
 from engine.composer import ComposeGenerator
+from engine.detection import DetectionEngine
+from engine.validation import Validator
 
 console = Console()
 
@@ -120,6 +125,120 @@ DEFAULT_PORTS: dict[str, int] = {
     "grafana": 3002, "loki": 3100,
     "cadvisor": 8089, "nginx": 80,
     "keycloak": 8085,
+}
+
+
+DOCKERFILES = {
+    "react": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
+""",
+    "nextjs": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+""",
+    "vue": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
+""",
+    "angular": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 4200
+CMD ["npm", "run", "start"]
+""",
+    "svelte": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
+""",
+    "fastapi": """FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt* pyproject.toml* ./
+RUN pip install --no-cache-dir -r requirements.txt || true
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+""",
+    "flask": """FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt* pyproject.toml* ./
+RUN pip install --no-cache-dir -r requirements.txt || true
+COPY . .
+EXPOSE 5000
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+""",
+    "django": """FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt* pyproject.toml* ./
+RUN pip install --no-cache-dir -r requirements.txt || true
+COPY . .
+EXPOSE 8000
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+""",
+    "nestjs": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 4000
+CMD ["npm", "run", "start:dev"]
+""",
+    "express": """FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+CMD ["npm", "run", "dev"]
+""",
+    "springboot": """FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+CMD ["java", "-jar", "app.jar"]
+""",
+    "aspnetcore": """FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY *.csproj .
+RUN dotnet restore
+COPY . .
+RUN dotnet publish -c Release -o /app
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+WORKDIR /app
+COPY --from=build /app .
+EXPOSE 80
+ENTRYPOINT ["dotnet", "app.dll"]
+""",
+    "flutter": """FROM ghcr.io/cirruslabs/flutter:3.22.0
+WORKDIR /app
+COPY . .
+RUN flutter pub get
+"""
 }
 
 
@@ -598,3 +717,421 @@ class ProjectGenerator:
         )
         (project.path / ".gitignore").write_text(content, encoding="utf-8")
         console.print(f"  [green]✓[/green] Generated .gitignore")
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # ONBOARDING (EXISTING PROJECTS)
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def onboard(self, project_name: str, project_path: Path, interactive: bool = True):
+        """
+        Onboards an existing project by scanning it, validating configuration,
+        asking user about Dockerfiles/docker-compose, and generating DevForge files.
+        """
+        console.print(Panel(
+            f"[bold cyan]Onboarding existing project: {project_name}[/bold cyan]\n"
+            f"[dim]Path: {project_path}[/dim]",
+            title="[bold]DevForge Existing Project Onboarding[/bold]",
+            box=box.ROUNDED,
+        ))
+
+        # 1. Run detection
+        console.print("[cyan]Scanning project directory...[/cyan]")
+        detected = DetectionEngine.detect(project_path, force=True)
+
+        # Print detected tech
+        console.print("\n[bold green]✓ Scan Complete.[/bold green] Detected technologies:")
+        for category, techs in detected.items():
+            if category in ("Recommendations", "Docker", "Package Managers"):
+                continue
+            if isinstance(techs, dict) and techs:
+                console.print(f"  [bold cyan]{category}[/bold cyan]")
+                for tech in techs.keys():
+                    console.print(f"    ✓ {tech}")
+        
+        # Package managers
+        if "Package Managers" in detected and detected["Package Managers"]:
+            console.print("  [bold cyan]Package Managers[/bold cyan]")
+            for pm in detected["Package Managers"].keys():
+                console.print(f"    ✓ {pm}")
+
+        # Docker files
+        if "Docker" in detected and detected["Docker"]:
+            console.print("  [bold cyan]Docker[/bold cyan]")
+            for df in detected["Docker"].keys():
+                console.print(f"    ✓ {df}")
+
+        # Recommendations
+        if detected.get("Recommendations"):
+            console.print("\n[bold yellow]Recommendations[/bold yellow]")
+            for rec in detected["Recommendations"]:
+                console.print(f"  - {rec}")
+        console.print("")
+
+        # 2. Map detected tech to frameworks and plugins
+        frameworks = {
+            "frontend": None,
+            "backend": None,
+            "mobile": None,
+            "ai": None,
+            "ocr": False,
+            "stt": False
+        }
+
+        # Map frontend
+        for fw in ["react", "nextjs", "vue", "angular", "svelte"]:
+            for k in detected.get("Frontend", {}).keys():
+                if k.lower().replace(".", "").replace("-", "") == fw:
+                    frameworks["frontend"] = fw
+
+        # Map backend
+        for fw in ["nestjs", "express", "fastapi", "flask", "django", "springboot", "aspnetcore"]:
+            for k in detected.get("Backend", {}).keys():
+                normalized = k.lower().replace(" ", "").replace(".", "").replace("-", "")
+                if normalized == fw:
+                    frameworks["backend"] = fw
+
+        # Map mobile
+        for m in ["flutter", "android"]:
+            for k in detected.get("Mobile", {}).keys():
+                if k.lower() == m:
+                    frameworks["mobile"] = m
+
+        # Map AI / OCR / STT
+        for k in detected.get("AI", {}).keys():
+            normalized = k.lower()
+            if normalized in ("langchain", "llamaindex"):
+                frameworks["ai"] = normalized
+            elif normalized == "tesseract":
+                frameworks["ocr"] = True
+            elif normalized == "whisper":
+                frameworks["stt"] = True
+
+        # Auto-enable plugins
+        plugins = []
+        tech_plugin_map = {
+            "MongoDB": "mongodb",
+            "PostgreSQL": "postgres",
+            "Neo4j": "neo4j",
+            "Redis": "redis",
+            "ChromaDB": "chromadb",
+            "Qdrant": "qdrant",
+            "Ollama": "ollama",
+            "RabbitMQ": "rabbitmq",
+            "MinIO": "minio",
+            "Prometheus": "prometheus",
+            "Grafana": "grafana",
+            "Loki": "loki",
+            "Nginx": "nginx",
+        }
+
+        # Scan for DBs/Caches/Vector DBs/AI runners/etc. to enable plugins
+        for cat in ("Database", "Cache", "Vector Database", "AI", "Messaging", "Monitoring", "Storage"):
+            if cat in detected:
+                for tech in detected[cat].keys():
+                    plugin = tech_plugin_map.get(tech)
+                    if plugin:
+                        plugins.append(plugin)
+                        # Also auto-add dependencies like open-webui if ollama is detected
+                        if plugin == "ollama" and "Ollama" in detected.get("AI", {}):
+                            plugins.append("open-webui")
+                        # Add database UIs if database is enabled
+                        if plugin == "postgres" and interactive:
+                            if questionary.confirm("Include pgAdmin (PostgreSQL UI)?", default=True).ask():
+                                plugins.append("pgadmin")
+                        elif plugin == "postgres" and not interactive:
+                            plugins.append("pgadmin")
+                        
+                        if plugin == "mongodb" and interactive:
+                            if questionary.confirm("Include Mongo Express (MongoDB UI)?", default=True).ask():
+                                plugins.append("mongo-express")
+                        elif plugin == "mongodb" and not interactive:
+                            plugins.append("mongo-express")
+
+                        if plugin == "redis" and interactive:
+                            if questionary.confirm("Include Redis Commander (Redis UI)?", default=False).ask():
+                                plugins.append("redis-commander")
+
+        # Deduplicate preserving order
+        seen = set()
+        plugins = [p for p in plugins if not (p in seen or seen.add(p))]
+
+        # Build port map
+        ports = {}
+        for item in ([frameworks["frontend"], frameworks["backend"], frameworks["mobile"]] + plugins):
+            if item and item in DEFAULT_PORTS:
+                ports[item] = DEFAULT_PORTS[item]
+
+        config = {
+            "project_name": project_name,
+            "project_type": "Onboarded Existing Project",
+            "frameworks": frameworks,
+            "plugins": plugins,
+            "plugin_versions": {},
+            "ports": ports,
+            "env_vars": {}
+        }
+
+        # 3. Validate
+        console.print("[cyan]Validating stack configuration...[/cyan]")
+        validation_results = Validator.validate(project_path, config)
+
+        if validation_results["errors"]:
+            console.print("[bold red]✗ Validation Failed with errors:[/bold red]")
+            for err in validation_results["errors"]:
+                console.print(f"  - {err}")
+            raise SystemExit(1)
+
+        if validation_results["warnings"]:
+            console.print("[bold yellow]⚠ Validation Warnings:[/bold yellow]")
+            for warn in validation_results["warnings"]:
+                console.print(f"  - {warn}")
+
+        # 4. Handle existing Dockerfiles
+        has_dockerfiles = "Dockerfile" in detected.get("Docker", {})
+        dockerfile_action = "Replace"
+        if has_dockerfiles:
+            if interactive:
+                dockerfile_action = questionary.select(
+                    "Existing Dockerfile(s) detected. How would you like to handle them?",
+                    choices=["Reuse", "Improve", "Replace"],
+                    style=STYLE,
+                ).ask()
+                if dockerfile_action is None:
+                    raise SystemExit(0)
+            else:
+                dockerfile_action = "Reuse"  # Safe default
+
+        # 5. Handle existing docker-compose
+        has_compose = "docker-compose.yml" in detected.get("Docker", {})
+        compose_action = "Replace"
+        if has_compose:
+            if interactive:
+                compose_action = questionary.select(
+                    "Existing docker-compose.yml detected. How would you like to handle it?",
+                    choices=["Reuse", "Merge", "Replace"],
+                    style=STYLE,
+                ).ask()
+                if compose_action is None:
+                    raise SystemExit(0)
+            else:
+                compose_action = "Merge"  # Safe default
+
+        # 6. Create Project workspace structure
+        project = Project(project_name, path=project_path)
+        project.ensure_devforge_dir()
+
+        # 7. Generate Dockerfiles only if missing or Replace selected
+        self._generate_or_improve_dockerfiles(project_path, frameworks, dockerfile_action)
+
+        # 8. Generate docker-compose.yml based on compose action
+        self._generate_or_merge_compose(project, config, compose_action)
+
+        # 9. Generate .env and .env.example
+        self._generate_env(project, config["plugins"], config["ports"])
+
+        # 10. Generate DevForge files: devforge.json, services.yaml, workspace.json, README.devforge.md
+        self._generate_devforge_files(project, config, project_path)
+
+        # 11. Generate gitignore
+        self._generate_gitignore(project)
+
+        # Set active project
+        WorkspaceManager().set_active_project(project_name)
+
+        # Summary
+        console.print(Panel(
+            f"[bold green]✓ Project '{project_name}' onboarded successfully![/bold green]\n\n"
+            f"[dim]Location:[/dim]  {project_path}\n"
+            f"[dim]Plugins:[/dim]   {', '.join(config['plugins']) or 'none'}\n"
+            f"[dim]Dockerfiles:[/dim] {dockerfile_action}\n"
+            f"[dim]Compose:[/dim]     {compose_action}\n\n"
+            "[bold]Next steps:[/bold]\n"
+            f"  devforge up --project {project_name}\n"
+            f"  devforge logs postgres --project {project_name}",
+            title="[bold]Onboarding Summary[/bold]",
+            box=box.ROUNDED,
+        ))
+
+    def _generate_or_improve_dockerfiles(self, project_path: Path, frameworks: dict, action: str):
+        # Identify where to generate Dockerfile(s)
+        targets = []
+        if frameworks.get("frontend"):
+            fw = frameworks["frontend"]
+            path = project_path / "frontend"
+            if not path.exists():
+                path = project_path
+            targets.append((path, fw))
+        if frameworks.get("backend"):
+            fw = frameworks["backend"]
+            path = project_path / "backend"
+            if not path.exists():
+                path = project_path
+            targets.append((path, fw))
+
+        for target_dir, fw in targets:
+            dockerfile_path = target_dir / "Dockerfile"
+            if action == "Replace" or not dockerfile_path.exists():
+                df_content = DOCKERFILES.get(fw)
+                if df_content:
+                    dockerfile_path.write_text(df_content, encoding="utf-8")
+                    console.print(f"  [green]✓[/green] Generated Dockerfile for {fw} at {dockerfile_path.relative_to(project_path)}")
+            elif action == "Improve":
+                self._improve_dockerfile_file(dockerfile_path)
+
+    def _improve_dockerfile_file(self, filepath: Path):
+        try:
+            content = filepath.read_text(encoding="utf-8", errors="ignore")
+            improvements = []
+            
+            if "user" not in content.lower():
+                improvements.append(
+                    "\n# DEVFORGE v2 SECURITY HARDENING: Consider running as non-root user\n"
+                    "# Example for Alpine Node:\n"
+                    "# USER node\n"
+                    "# Example for Debian/Ubuntu:\n"
+                    "# RUN groupadd -g 1001 appgroup && useradd -u 1001 -g appgroup -m appuser\n"
+                    "# USER appuser\n"
+                )
+
+            if "apt-get install" in content and "rm -rf /var/lib/apt/lists" not in content:
+                improvements.append(
+                    "\n# DEVFORGE v2 PERFORMANCE OPTIMIZATION: Clean up package manager caches\n"
+                    "# Example: RUN apt-get update && apt-get install -y --no-install-recommends <pkgs> && rm -rf /var/lib/apt/lists/*\n"
+                )
+
+            if improvements:
+                header = (
+                    "# ==============================================================================\n"
+                    "# DEVFORGE v2 AUTOMATED DOCKERFILE IMPROVEMENTS\n"
+                    "# ==============================================================================\n"
+                )
+                improved_content = header + content + "".join(improvements)
+                filepath.write_text(improved_content, encoding="utf-8")
+                console.print(f"  [green]✓[/green] Added improvements to {filepath.name}")
+        except Exception as e:
+            console.print(f"  [yellow]⚠[/yellow] Could not improve Dockerfile '{filepath}': {e}")
+
+    def _generate_or_merge_compose(self, project: Project, config: dict, action: str):
+        composer = ComposeGenerator()
+        
+        rendered_content = composer.generate(
+            project=project,
+            plugins=config["plugins"],
+            plugin_versions=config["plugin_versions"],
+            frameworks=config["frameworks"],
+            ports=config["ports"],
+            profile="dev"
+        )
+
+        compose_file = project.compose_file
+
+        if action == "Replace" or not compose_file.exists():
+            compose_file.write_text(rendered_content, encoding="utf-8")
+            console.print(f"  [green]✓[/green] Generated docker-compose.yml")
+        elif action == "Merge":
+            try:
+                with open(compose_file, "r", encoding="utf-8") as f:
+                    existing_data = yaml.safe_load(f) or {}
+                
+                generated_data = yaml.safe_load(rendered_content) or {}
+                
+                if not isinstance(existing_data, dict):
+                    existing_data = {}
+                
+                merged_data = dict(existing_data)
+                merged_data.setdefault("services", {}).update(generated_data.get("services", {}))
+                merged_data.setdefault("volumes", {}).update(generated_data.get("volumes", {}))
+                merged_data.setdefault("networks", {}).update(generated_data.get("networks", {}))
+                
+                with open(compose_file, "w", encoding="utf-8") as f:
+                    yaml.dump(merged_data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+                
+                console.print(f"  [green]✓[/green] Merged services into docker-compose.yml")
+            except Exception as e:
+                console.print(f"  [red]✗[/red] Failed to merge compose: {e}. Overwriting as fallback.")
+                compose_file.write_text(rendered_content, encoding="utf-8")
+
+        composer.write_compose_files(
+            project=project,
+            plugins=config["plugins"],
+            plugin_versions=config["plugin_versions"],
+            frameworks=config["frameworks"],
+            ports=config["ports"],
+        )
+
+    def _generate_devforge_files(self, project: Project, config: dict, project_path: Path):
+        manifest = Project.build_manifest(
+            name=config["project_name"],
+            project_type=config["project_type"],
+            frameworks=config["frameworks"],
+            plugins=config["plugins"],
+            plugin_versions=config["plugin_versions"],
+            ports=config["ports"],
+            env_vars={},
+            ci_cd=None,
+        )
+        project.save_manifest(manifest)
+        console.print(f"  [green]✓[/green] Updated devforge.json")
+
+        services_list = []
+        for p in config["plugins"]:
+            services_list.append({
+                "name": p,
+                "port": config["ports"].get(p, 0),
+                "status": "enabled"
+            })
+        services_data = {"services": services_list}
+        services_yaml_path = project.devforge_dir / "services.yaml"
+        with open(services_yaml_path, "w", encoding="utf-8") as f:
+            yaml.dump(services_data, f, default_flow_style=False)
+        console.print(f"  [green]✓[/green] Created .devforge/services.yaml")
+
+        from datetime import datetime, timezone
+        workspace_data = {
+            "project_name": config["project_name"],
+            "path": str(project_path.resolve()),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "active_profile": "dev"
+        }
+        workspace_json_path = project.devforge_dir / "workspace.json"
+        with open(workspace_json_path, "w", encoding="utf-8") as f:
+            json.dump(workspace_data, f, indent=2)
+        console.print(f"  [green]✓[/green] Created .devforge/workspace.json")
+
+        readme_content = f"""# DevForge Project: {config['project_name']}
+
+This directory is managed as a DevForge project.
+
+## Project Details
+- **Project Name**: `{config['project_name']}`
+- **Project Path**: `{project_path}`
+- **Enabled Plugins**: {', '.join(config['plugins']) or 'None'}
+- **Detected Frameworks**:
+  - Frontend: `{config['frameworks']['frontend'] or 'None'}`
+  - Backend: `{config['frameworks']['backend'] or 'None'}`
+  - Mobile: `{config['frameworks']['mobile'] or 'None'}`
+
+## Command Guide
+
+Start all DevForge infrastructure services:
+```bash
+devforge up
+```
+
+Stop all services:
+```bash
+devforge down
+```
+
+Check status of containers:
+```bash
+devforge status
+```
+
+Open a shell inside a service (e.g. postgres):
+```bash
+devforge shell postgres
+```
+"""
+        (project.path / "README.devforge.md").write_text(readme_content, encoding="utf-8")
+        console.print(f"  [green]✓[/green] Created README.devforge.md")

@@ -17,6 +17,8 @@ DevForge v2 evolves from a static "everything on" platform into a **modular, pro
 | Feature | v1 | v2 |
 |---|---|---|
 | Project creation | `devforge create <template>` | `devforge new <name>` — interactive wizard |
+| Project onboarding | ❌ | ✅ `devforge init` & `devforge import <path>` |
+| Codebase detection | ❌ | ✅ `devforge detect` |
 | Compose strategy | Single monolithic file | Project-specific, only selected services |
 | Plugin system | ❌ | ✅ `devforge plugin install postgres@16` |
 | Template versioning | ❌ | ✅ `react@18`, `nestjs@11`, `fastapi@0.115` |
@@ -283,13 +285,40 @@ Once running, open your browser:
 
 ---
 
+### Option C — v2: Onboard an Existing Project
+
+You can onboard an existing project into DevForge in two ways:
+
+#### 1. Initialize In-Place (Keep files where they are)
+If you want to keep your project files in their current folder and run them directly from there:
+```powershell
+cd /path/to/your/existing/project
+# Run the DevForge init command pointing to your DevForge script path
+D:\Coding\DevForge\devforge.ps1 init
+```
+
+#### 2. Import into Workspace (Copy files to projects/)
+If you want to copy your existing project into DevForge's managed `projects/` directory:
+```powershell
+cd D:\Coding\DevForge
+# Import the project into the DevForge projects/ directory
+.\devforge.ps1 import D:\Projects\SocialCross
+```
+
+Either method automatically runs the **Detection Engine** to identify frameworks and packages, validates ports/dependencies, and prompts you to safely merge or reuse any existing Docker/Compose configurations.
+
+---
+
 ## CLI Commands
 
 ### v2 Commands (New)
 
 ```powershell
-# Project wizard
+# Project wizard & onboarding
 devforge new <project-name>
+devforge init
+devforge import <path>
+devforge detect
 
 # Plugin management (with versioning)
 devforge plugin list

@@ -15,12 +15,12 @@ import yaml
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from rich.console import Console
 
-from engine.workspace import Project
+from engine.workspace import Project, get_devforge_root
 
 console = Console()
 
 WORKSPACE_ROOT = Path("/workspace")
-PLUGINS_DIR = WORKSPACE_ROOT / "plugins"
+PLUGINS_DIR = get_devforge_root() / "plugins"
 
 # Shared YAML anchors injected at the top of every generated compose file
 COMPOSE_PREAMBLE = """\
