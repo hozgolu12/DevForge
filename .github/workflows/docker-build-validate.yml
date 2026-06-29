@@ -1,0 +1,39 @@
+name: Docker Build Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - base
+          - nginx
+          - postgres
+          - mongodb
+          - redis
+          - neo4j
+          - qdrant
+          - chromadb
+          - ollama
+          - open-webui
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate build for ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/${{ matrix.service }}
+          file: ./docker/${{ matrix.service }}/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

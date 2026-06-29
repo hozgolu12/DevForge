@@ -1,0 +1,12 @@
+# YAML Lint configuration for DevForge
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no']
+  comments:
+    level: warning
+  indentation:
+    indent-sequences: consistent

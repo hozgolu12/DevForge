@@ -1,0 +1,55 @@
+# ==============================================================================
+# DEVFORGE LOCAL DEVELOPER OVERRIDES
+# ==============================================================================
+# This file is loaded automatically by Docker Compose alongside docker-compose.yml.
+# It is intended for developer-specific local customizations and debugging.
+# Modifications here will not disrupt standard platform configurations.
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # Examples of overriding services for development workflows:
+
+  # 1. Enable Host-Mount Development or Extra Dev Port on Nginx
+  nginx:
+    # ports:
+    #   - "8080:8080" # Map direct access to internal non-privileged port
+    volumes:
+      # Mount local templates/ or projects/ directories for static server reference
+      - ./templates:/usr/share/nginx/html/templates:ro
+
+  # 2. Enable local Postgres debugging or mapping direct config files
+  postgres:
+    # command: postgres -c log_statement=all # Logs all executed SQL queries for debugging
+    volumes:
+      # Developer can map SQL init scripts here:
+      - ./docker/postgres/init-scripts:/docker-entrypoint-initdb.d:ro
+
+  # 3. Mount custom Redis configuration overrides or direct command logs
+  redis:
+    # command: redis-server --loglevel debug
+
+  # 4. Neo4j Plugins/Settings Overrides
+  neo4j:
+    # environment:
+    #   NEO4J_dbms_logs_query_enabled: "true" # Query logger
+
+  # 5. ChromaDB persistent database logs override
+  chromadb:
+    # environment:
+    #   ANONYMIZED_TELEMETRY: "False" # Disable Chroma telemetry reporting
+
+  # 6. Ollama GPU Acceleration Override (Nvidia GPUs)
+  # Uncomment the deploy block below to route container queries to your Nvidia GPU.
+  ollama:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    environment:
+      # Set to 1 to run Ollama in single thread/debug mode if needed
+      - OLLAMA_NUM_PARALLEL=1

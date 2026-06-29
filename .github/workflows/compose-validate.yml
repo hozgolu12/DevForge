@@ -1,0 +1,25 @@
+name: Docker Compose Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Initialize Environment Variables
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose config -q
+          echo "Docker Compose file is structurally valid."

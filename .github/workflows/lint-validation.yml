@@ -1,0 +1,38 @@
+name: Lint Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Lint YAML Configuration files
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: |
+            docker-compose.yml
+            docker-compose.override.yml
+            .github/workflows/
+            .devcontainer/
+          config_file: .yamllint.yml
+          strict: true
+
+  lint-markdown:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Markdown Lint check
+        uses: gaurav-nelson/github-action-markdown-cli@v3
+        with:
+          files: |
+            README.md
+            docs/

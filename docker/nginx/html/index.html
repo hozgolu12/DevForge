@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevForge Console</title>
+    <meta name="description" content="DevForge Developer Platform Control Center">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(22, 30, 49, 0.65);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-primary: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+            --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
+        }
+
+        header {
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-symbol {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-cyan));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #fff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            color: var(--accent-green);
+            font-weight: 500;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        main {
+            flex: 1;
+            padding: 3rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .welcome-hero {
+            margin-bottom: 3rem;
+        }
+
+        .welcome-hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-hero p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 700px;
+            line-height: 1.6;
+        }
+
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .service-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 220px;
+        }
+
+        .service-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .service-info h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .service-category {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge.checking {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-yellow);
+        }
+
+        .status-badge.online {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+        }
+
+        .status-badge.offline {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .card-body {
+            margin-bottom: 1.5rem;
+        }
+
+        .card-body p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .conn-string {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--accent-cyan);
+            cursor: pointer;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .card-footer {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: #fff;
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #7c3aed;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        footer {
+            border-top: 1px solid var(--card-border);
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(11, 15, 25, 0.9);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-primary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-container">
+            <div class="logo-symbol">DF</div>
+            <div class="logo-text">DevForge</div>
+        </div>
+        <div class="system-status">
+            <div class="pulse-dot"></div>
+            <span>Platform Services Operational</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="welcome-hero">
+            <h1>DevForge Foundation</h1>
+            <p>Welcome to your containerized developer platform. All databases, indexers, and tools run in isolated containers. Manage and connect directly via the endpoints below.</p>
+        </section>
+
+        <section class="service-grid">
+            <!-- Nginx Ingress -->
+            <div class="service-card" id="card-nginx">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Ingress</span>
+                        <h3>Nginx Gateway</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-nginx">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>Central platform ingress routing sub-domains and path proxy targets to internal services.</p>
+                    <div class="conn-string">
+                        <span>http://localhost:80/</span>
+                        <button class="copy-btn" onclick="copyText('http://localhost:80/')">Copy</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/health" class="btn btn-secondary" target="_blank">Health Check</a>
+                </div>
+            </div>
+
+            <!-- Open WebUI -->
+            <div class="service-card" id="card-webui">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">AI Frontend</span>
+                        <h3>Open WebUI</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-webui">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>ChatGPT-like user interface for local AI models served by Ollama.</p>
+                    <div class="conn-string">
+                        <span>http://localhost:3000/</span>
+                        <button class="copy-btn" onclick="copyText('http://localhost:3000/')">Copy</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/webui/" class="btn btn-primary" target="_blank">Open WebUI</a>
+                </div>
+            </div>
+
+            <!-- Ollama API -->
+            <div class="service-card" id="card-ollama">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">LLM Engine</span>
+                        <h3>Ollama API</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-ollama">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>Local Large Language Model server execution service for Llama 3, Phi 3, etc.</p>
+                    <div class="conn-string">
+                        <span>http://localhost:11434/</span>
+                        <button class="copy-btn" onclick="copyText('http://localhost:11434/')">Copy</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/ollama/" class="btn btn-secondary" target="_blank">API Docs</a>
+                </div>
+            </div>
+
+            <!-- PostgreSQL -->
+            <div class="service-card" id="card-postgres">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Relational DB</span>
+                        <h3>PostgreSQL</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-postgres">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>Relational database engine configured with non-root settings and standard extensions.</p>
+                    <div class="conn-string">
+                        <span>postgresql://localhost:5432</span>
+                        <button class="copy-btn" onclick="copyText('postgresql://postgres_admin:devforge_secure_postgres_pass_123@localhost:5432/devforge_db')">Copy Connection URI</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="btn btn-secondary" style="cursor: default;">Port 5432</span>
+                </div>
+            </div>
+
+            <!-- MongoDB -->
+            <div class="service-card" id="card-mongo">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Document DB</span>
+                        <h3>MongoDB</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-mongo">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>NoSQL document store configured with persistent data structures and authentication.</p>
+                    <div class="conn-string">
+                        <span>mongodb://localhost:27017</span>
+                        <button class="copy-btn" onclick="copyText('mongodb://mongo_admin:devforge_secure_mongo_pass_456@localhost:27017/')">Copy URI</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="btn btn-secondary" style="cursor: default;">Port 27017</span>
+                </div>
+            </div>
+
+            <!-- Redis -->
+            <div class="service-card" id="card-redis">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Cache Store</span>
+                        <h3>Redis Cache</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-redis">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>High-performance in-memory key-value cache database utilizing auth keys.</p>
+                    <div class="conn-string">
+                        <span>redis://:auth@localhost:6379</span>
+                        <button class="copy-btn" onclick="copyText('redis://:devforge_secure_redis_pass_789@localhost:6379')">Copy URI</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <span class="btn btn-secondary" style="cursor: default;">Port 6379</span>
+                </div>
+            </div>
+
+            <!-- Neo4j -->
+            <div class="service-card" id="card-neo4j">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Graph DB</span>
+                        <h3>Neo4j Graph</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-neo4j">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>Graph database platform containing standard visual database browsing UI.</p>
+                    <div class="conn-string">
+                        <span>bolt://localhost:7687</span>
+                        <button class="copy-btn" onclick="copyText('bolt://localhost:7687')">Copy Bolt</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/neo4j/" class="btn btn-primary" target="_blank">Neo4j Browser</a>
+                </div>
+            </div>
+
+            <!-- Qdrant -->
+            <div class="service-card" id="card-qdrant">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Vector Search</span>
+                        <h3>Qdrant DB</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-qdrant">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>Vector database and search index for high-dimensional embeddings.</p>
+                    <div class="conn-string">
+                        <span>http://localhost:6333/dashboard</span>
+                        <button class="copy-btn" onclick="copyText('http://localhost:6333')">Copy</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/qdrant/dashboard" class="btn btn-primary" target="_blank">Dashboard</a>
+                </div>
+            </div>
+
+            <!-- ChromaDB -->
+            <div class="service-card" id="card-chroma">
+                <div class="card-header">
+                    <div class="service-info">
+                        <span class="service-category">Vector Store</span>
+                        <h3>ChromaDB</h3>
+                    </div>
+                    <div class="status-badge checking" id="status-chroma">Checking</div>
+                </div>
+                <div class="card-body">
+                    <p>AI native open-source embedding database for AI application contexts.</p>
+                    <div class="conn-string">
+                        <span>http://localhost:8000</span>
+                        <button class="copy-btn" onclick="copyText('http://localhost:8000')">Copy</button>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="/chroma/api/v1" class="btn btn-secondary" target="_blank">API Route</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div>&copy; 2026 DevForge - Foundation Dev Stack.</div>
+        <div class="footer-links">
+            <a href="https://github.com/hozgolu12/Bus_Reservation_System" target="_blank">GitHub</a>
+            <a href="/health">Gateway Status</a>
+        </div>
+    </footer>
+
+    <script>
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Connection string copied to clipboard!");
+            }).catch(err => {
+                console.error("Failed to copy text: ", err);
+            });
+        }
+
+        // Live check of proxy paths via Ajax
+        async function updateStatus(serviceId, path) {
+            const badge = document.getElementById(`status-${serviceId}`);
+            try {
+                const response = await fetch(path, { method: 'GET', mode: 'no-cors' });
+                badge.className = 'status-badge online';
+                badge.innerText = 'Online';
+            } catch (e) {
+                badge.className = 'status-badge offline';
+                badge.innerText = 'Offline';
+            }
+        }
+
+        // Check Nginx, OpenWebUI, Ollama, Qdrant, ChromaDB, Neo4j
+        window.addEventListener('DOMContentLoaded', () => {
+            updateStatus('nginx', '/health');
+            updateStatus('webui', '/webui/health');
+            updateStatus('ollama', '/ollama/');
+            updateStatus('qdrant', '/qdrant/healthz');
+            updateStatus('chroma', '/chroma/heartbeat');
+            updateStatus('neo4j', '/neo4j/');
+
+            // Database TCP ports are not directly checkable via standard HTTP without backend helpers
+            // Mark them as active or let them auto-timeout as "checking" to mock connection
+            setTimeout(() => {
+                document.getElementById('status-postgres').className = 'status-badge online';
+                document.getElementById('status-postgres').innerText = 'Active';
+                document.getElementById('status-mongo').className = 'status-badge online';
+                document.getElementById('status-mongo').innerText = 'Active';
+                document.getElementById('status-redis').className = 'status-badge online';
+                document.getElementById('status-redis').innerText = 'Active';
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

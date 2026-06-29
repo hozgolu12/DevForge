@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to Express (Docker)",
+      "port": 9229,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}/projects/sample-express",
+      "remoteRoot": "/workspace/sample-express",
+      "sourceMaps": true,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to NestJS (Docker)",
+      "port": 9230,
+      "address": "localhost",
+      "localRoot": "${workspaceFolder}/projects/sample-nestjs",
+      "remoteRoot": "/workspace/sample-nestjs",
+      "sourceMaps": true,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug React in Chrome",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/projects/sample-react"
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Debug Next.js in Chrome",
+      "url": "http://localhost:3001",
+      "webRoot": "${workspaceFolder}/projects/sample-nextjs"
+    }
+  ]
+}

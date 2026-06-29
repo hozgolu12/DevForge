@@ -1,0 +1,638 @@
+# ==============================================================================
+# DEVFORGE PLATFORM COMPOSE ORCHESTRATION
+# ==============================================================================
+# This file defines the modular infrastructure services for DevForge.
+# All services communicate via the internal 'devforge-network'.
+# Configuration is managed dynamically using environment variables.
+# ==============================================================================
+
+version: '3.8'
+
+# Extension Fields for Configuration Reuse (DRY Principle)
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security-defaults: &security-defaults
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  # ----------------------------------------------------------------------------
+  # NGINX INGRESS CONTROLLER
+  # ----------------------------------------------------------------------------
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    container_name: devforge-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT}:8080"
+      - "${NGINX_SECURE_PORT}:8443"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+      - AUDIT_WRITE
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - FSETID
+      - KILL
+      - MKNOD
+      - NET_BIND_SERVICE
+      - NET_RAW
+      - SETGID
+      - SETFCAP
+      - SETUID
+      - SYS_CHROOT
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /var/lib/nginx
+      - /var/log/nginx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      open-webui:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # POSTGRESQL DATABASE
+  # ----------------------------------------------------------------------------
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    container_name: devforge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    # Postgres needs DAC_OVERRIDE/CHOWN for volume mount permissions setup
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  # ----------------------------------------------------------------------------
+  # MONGODB DOCUMENT DATABASE
+  # ----------------------------------------------------------------------------
+  mongodb:
+    build:
+      context: ./docker/mongodb
+      dockerfile: Dockerfile
+    container_name: devforge-mongodb
+    restart: unless-stopped
+    command: mongod --config /etc/mongod.conf
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - mongodata:/data/db
+      - mongoconfig:/data/configdb
+    ports:
+      - "${MONGO_PORT}:27017"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  # ----------------------------------------------------------------------------
+  # REDIS CACHE
+  # ----------------------------------------------------------------------------
+  redis:
+    build:
+      context: ./docker/redis
+      dockerfile: Dockerfile
+    container_name: devforge-redis
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redisdata:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "$$REDIS_PASSWORD", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # ----------------------------------------------------------------------------
+  # NEO4J GRAPH DATABASE
+  # ----------------------------------------------------------------------------
+  neo4j:
+    build:
+      context: ./docker/neo4j
+      dockerfile: Dockerfile
+    container_name: devforge-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_AUTH}
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - neo4jdata:/data
+      - neo4jlogs:/logs
+    ports:
+      - "${NEO4J_PORT_HTTP}:7474"
+      - "${NEO4J_PORT_BOLT}:7687"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474/"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  # ----------------------------------------------------------------------------
+  # QDRANT VECTOR SEARCH ENGINE
+  # ----------------------------------------------------------------------------
+  qdrant:
+    build:
+      context: ./docker/qdrant
+      dockerfile: Dockerfile
+    container_name: devforge-qdrant
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    volumes:
+      - qdrantdata:/qdrant/storage
+    ports:
+      - "${QDRANT_PORT}:6333"
+      - "${QDRANT_GRPC_PORT}:6334"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  # ----------------------------------------------------------------------------
+  # CHROMADB EMBEDDINGS DATABASE
+  # ----------------------------------------------------------------------------
+  chromadb:
+    build:
+      context: ./docker/chromadb
+      dockerfile: Dockerfile
+    container_name: devforge-chromadb
+    restart: unless-stopped
+    environment:
+      CHROMA_SERVER_AUTH_PROVIDER: "chromadb.auth.token.TokenAuthenticationProvider"
+      CHROMA_SERVER_AUTH_CREDENTIALS: ${CHROMA_AUTH_TOKEN}
+      CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER: "chromadb.auth.token.TokenConfigCredentialsProvider"
+      PERSIST_DIRECTORY: "/chroma/data"
+    volumes:
+      - chromadata:/chroma/data
+    ports:
+      - "${CHROMA_PORT}:8000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  # ----------------------------------------------------------------------------
+  # OLLAMA LLM SERVICE
+  # ----------------------------------------------------------------------------
+  ollama:
+    build:
+      context: ./docker/ollama
+      dockerfile: Dockerfile
+    container_name: devforge-ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_MODELS: ${OLLAMA_MODELS_PATH}
+    volumes:
+      - ollamadata:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ----------------------------------------------------------------------------
+  # OPEN WEBUI INTERFACE
+  # ----------------------------------------------------------------------------
+  open-webui:
+    build:
+      context: ./docker/open-webui
+      dockerfile: Dockerfile
+    container_name: devforge-open-webui
+    restart: unless-stopped
+    environment:
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+    volumes:
+      - webuidata:/app/backend/data
+    ports:
+      - "${OPEN_WEBUI_PORT}:8080"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # REACT NODE DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  react:
+    build:
+      context: .
+      dockerfile: ./docker/node/Dockerfile
+    container_name: devforge-react
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-react
+    volumes:
+      - .:/workspace:cached
+      - react_node_modules:/workspace/projects/sample-react/node_modules
+    ports:
+      - "${REACT_PORT:-5173}:5173"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - NODE_ENV=development
+      - PORT=5173
+    command: sh -c "npm install && npm run dev"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # NEXT.JS NODE DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  nextjs:
+    build:
+      context: .
+      dockerfile: ./docker/node/Dockerfile
+    container_name: devforge-nextjs
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-nextjs
+    volumes:
+      - .:/workspace:cached
+      - nextjs_node_modules:/workspace/projects/sample-nextjs/node_modules
+    ports:
+      - "${NEXTJS_PORT:-3001}:3001"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - WATCHPACK_POLLING=true
+    command: sh -c "npm install && npm run dev"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
+  # EXPRESS NODE DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  express:
+    build:
+      context: .
+      dockerfile: ./docker/node/Dockerfile
+    container_name: devforge-express
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-express
+    volumes:
+      - .:/workspace:cached
+      - express_node_modules:/workspace/projects/sample-express/node_modules
+    ports:
+      - "${EXPRESS_PORT:-5001}:5000"
+      - "9229:9229"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+    command: sh -c "npm install && npm run dev"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # NESTJS NODE DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  nestjs:
+    build:
+      context: .
+      dockerfile: ./docker/node/Dockerfile
+    container_name: devforge-nestjs
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-nestjs
+    volumes:
+      - .:/workspace:cached
+      - nestjs_node_modules:/workspace/projects/sample-nestjs/node_modules
+    ports:
+      - "${NESTJS_PORT:-4000}:4000"
+      - "9230:9229"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+    command: sh -c "npm install && npm run dev"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  # ----------------------------------------------------------------------------
+  # FASTAPI PYTHON DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  fastapi:
+    build:
+      context: .
+      dockerfile: ./docker/python/Dockerfile
+    container_name: devforge-fastapi
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-fastapi
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "${FASTAPI_PORT:-8081}:8000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - ENV=development
+      - PORT=8000
+    command: sh -c "uv pip install --system -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # FLASK PYTHON DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  flask:
+    build:
+      context: .
+      dockerfile: ./docker/python/Dockerfile
+    container_name: devforge-flask
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-flask
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "${FLASK_PORT:-5002}:5000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - FLASK_ENV=development
+      - PORT=5000
+    command: sh -c "uv pip install --system -r requirements.txt && flask run --host=0.0.0.0 --port=5000 --reload"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # DJANGO PYTHON DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  django:
+    build:
+      context: .
+      dockerfile: ./docker/python/Dockerfile
+    container_name: devforge-django
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-django
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "${DJANGO_PORT:-8082}:8000"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - DJANGO_ENV=development
+      - PORT=8000
+    command: sh -c "uv pip install --system -r requirements.txt && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------
+  # JUPYTERLAB ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  jupyter:
+    build:
+      context: .
+      dockerfile: ./docker/python/Dockerfile
+    container_name: devforge-jupyter
+    restart: unless-stopped
+    working_dir: /workspace/projects
+    volumes:
+      - .:/workspace:cached
+    ports:
+      - "${JUPYTER_PORT:-8888}:8888"
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/lab"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+# ------------------------------------------------------------------------------
+# NETWORKING DEFINITION
+# ------------------------------------------------------------------------------
+networks:
+  devforge-network:
+    name: ${DEVFORGE_NETWORK_NAME}
+    driver: bridge
+
+# ------------------------------------------------------------------------------
+# PERSISTENT VOLUMES DEFINITION
+# ------------------------------------------------------------------------------
+volumes:
+  pgdata:
+    name: devforge_pgdata
+  mongodata:
+    name: devforge_mongodata
+  mongoconfig:
+    name: devforge_mongoconfig
+  redisdata:
+    name: devforge_redisdata
+  neo4jdata:
+    name: devforge_neo4jdata
+  neo4jlogs:
+    name: devforge_neo4jlogs
+  qdrantdata:
+    name: devforge_qdrantdata
+  chromadata:
+    name: devforge_chromadata
+  ollamadata:
+    name: devforge_ollamadata
+  webuidata:
+    name: devforge_webuidata
+  react_node_modules:
+    name: devforge_react_node_modules
+  nextjs_node_modules:
+    name: devforge_nextjs_node_modules
+  express_node_modules:
+    name: devforge_express_node_modules
+  nestjs_node_modules:
+    name: devforge_nestjs_node_modules

@@ -1,0 +1,94 @@
+{
+  "name": "DevForge Workspace",
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "docker-compose.yml"
+  ],
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  
+  // Forward platform and database ports to the host machine
+  "forwardPorts": [
+    80,     // Nginx HTTP Ingress
+    443,    // Nginx HTTPS Ingress
+    5432,   // PostgreSQL
+    27017,  // MongoDB
+    6379,   // Redis
+    7474,   // Neo4j HTTP
+    7687,   // Neo4j Bolt
+    6333,   // Qdrant REST
+    6334,   // Qdrant gRPC
+    8000,   // ChromaDB
+    11434,  // Ollama API
+    3000    // Open WebUI
+  ],
+
+  // Assign ports human-readable labels
+  "portsAttributes": {
+    "80": { "label": "Nginx Ingress (Gateway)", "onAutoForward": "notify" },
+    "443": { "label": "Nginx Secure Ingress", "onAutoForward": "ignore" },
+    "5432": { "label": "PostgreSQL Database", "onAutoForward": "ignore" },
+    "27017": { "label": "MongoDB Database", "onAutoForward": "ignore" },
+    "6379": { "label": "Redis Cache", "onAutoForward": "ignore" },
+    "7474": { "label": "Neo4j Console", "onAutoForward": "notify" },
+    "7687": { "label": "Neo4j Bolt Driver", "onAutoForward": "ignore" },
+    "6333": { "label": "Qdrant REST Engine", "onAutoForward": "ignore" },
+    "6334": { "label": "Qdrant gRPC Engine", "onAutoForward": "ignore" },
+    "8000": { "label": "ChromaDB API Server", "onAutoForward": "ignore" },
+    "11434": { "label": "Ollama LLM Engine", "onAutoForward": "ignore" },
+    "3000": { "label": "Open WebUI Client", "onAutoForward": "notify" }
+  },
+
+  // VS Code customizations, extensions, and default settings
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "/bin/zsh",
+            "icon": "terminal-zsh"
+          }
+        },
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "yaml.schemas": {
+          "https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json": [
+            "docker-compose.yml",
+            "docker-compose.override.yml",
+            ".devcontainer/docker-compose.yml"
+          ]
+        },
+        "files.exclude": {
+          "**/.git": true,
+          "**/.DS_Store": true,
+          "**/node_modules": true,
+          "**/__pycache__": true
+        }
+      },
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "ms-vscode-remote.remote-containers",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "redhat.vscode-yaml",
+        "DavidAnson.vscode-markdownlint",
+        "ms-vscode.makefile-tools",
+        "bradlc.vscode-tailwindcss",
+        "github.vscode-github-actions",
+        "ms-vscode.vscode-typescript-next"
+      ]
+    }
+  },
+
+  // Run doctor script after creation to verify workspace health
+  "postCreateCommand": "make doctor"
+}
