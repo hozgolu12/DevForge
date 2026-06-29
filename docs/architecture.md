@@ -39,6 +39,7 @@ graph TD
         AI -->|Vector Search| Chroma
         AI -->|Vector Search| Qdrant
         SpringBoot[Spring Boot App] -->|Database Connections| Postgres
+        Flutter[Flutter Mobile Builder] -.->|Host ADB USB Bridge| PhysicalDevice[Physical Android Phone]
     end
 ```
 
@@ -64,6 +65,7 @@ Data is isolated using named volumes defined at the bottom of `docker-compose.ym
 * `devforge_express_node_modules`: Dynamic named volume for Express package cache.
 * `devforge_nestjs_node_modules`: Dynamic named volume for NestJS package cache.
 * `devforge_m2data`: Named volume for Maven package dependencies cache.
+* `devforge_gradle_cache`: Named volume for Android/Gradle build cache.
 
 ---
 

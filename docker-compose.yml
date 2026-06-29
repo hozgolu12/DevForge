@@ -628,6 +628,31 @@ services:
       start_period: 30s
 
   # ----------------------------------------------------------------------------
+  # FLUTTER MOBILE DEV ENVIRONMENT
+  # ----------------------------------------------------------------------------
+  flutter:
+    build:
+      context: .
+      dockerfile: ./docker/flutter/Dockerfile
+    container_name: devforge-flutter
+    restart: unless-stopped
+    working_dir: /workspace/projects/sample-flutter
+    volumes:
+      - .:/workspace:cached
+      - gradle_cache:/home/devforge/.gradle
+    networks:
+      - devforge-network
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "flutter", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ----------------------------------------------------------------------------
   # JUPYTERLAB ENVIRONMENT
   # ----------------------------------------------------------------------------
   jupyter:
@@ -696,3 +721,5 @@ volumes:
     name: devforge_nestjs_node_modules
   m2data:
     name: devforge_m2data
+  gradle_cache:
+    name: devforge_gradle_cache

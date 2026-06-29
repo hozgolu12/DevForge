@@ -1,5 +1,5 @@
 # DevForge Platform Automation Makefile
-.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell create-springboot java-shell
+.PHONY: up down restart build rebuild clean logs status doctor shell lint format backup restore node-shell create-react create-next create-express create-nest install update-node python-shell create-fastapi create-flask create-django create-ai ai-shell create-springboot java-shell create-flutter flutter-shell flutter-build-apk
 
 # Default service for shell command
 SERVICE ?= nginx
@@ -140,3 +140,17 @@ create-springboot:
 java-shell:
 	@echo "Opening shell in Spring Boot service..."
 	docker compose exec springboot zsh || docker compose exec springboot bash || docker compose exec springboot sh || docker compose run --entrypoint bash springboot
+
+# Create Flutter project from template (usage: make create-flutter name=my-app)
+create-flutter:
+	@bash ./scripts/create-flutter.sh $(name)
+
+# Open bash shell into a Flutter container (usage: make flutter-shell)
+flutter-shell:
+	@echo "Opening shell in Flutter service..."
+	docker compose exec flutter zsh || docker compose exec flutter bash || docker compose exec flutter sh || docker compose run --entrypoint bash flutter
+
+# Build Flutter release APK inside the container (usage: make flutter-build-apk)
+flutter-build-apk:
+	@echo "Building Flutter APK in release mode..."
+	docker compose exec flutter flutter build apk --release
