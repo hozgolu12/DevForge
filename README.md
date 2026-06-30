@@ -374,7 +374,7 @@ devforge doctor          # System diagnostics
 devforge backup          # Backup all databases
 devforge restore <path>  # Restore from snapshot
 devforge seed            # Seed databases
-devforge build-apk       # Build Flutter APK
+devforge build apk       # Compile Flutter release APK (alias: build-apk)
 ```
 
 ### Makefile Shortcuts

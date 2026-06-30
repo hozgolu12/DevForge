@@ -6,26 +6,28 @@ This document provides guidelines and commands for building Flutter mobile appli
 
 ## 1. APK Build Workflow
 
-DevForge isolates the Flutter SDK and Android SDK in the `flutter` container, allowing you to compile your apps to Android APKs without installing SDKs on your host machine.
+DevForge isolates the Flutter SDK and Android SDK in a dedicated compiler image, allowing you to compile your apps to Android APKs without installing SDKs on your host machine.
 
 ### Build Steps
 
-1. **Start the Flutter Container** (Ensure it is running):
+1. **Trigger Compilation**:
+   From your project root (or anywhere containing a `pubspec.yaml`), run the DevForge build command:
    ```bash
-   docker compose up -d flutter
+   devforge build apk
+   # Or on Windows PowerShell:
+   .\devforge.ps1 build apk
    ```
+   *(This automatically builds the `devforge-flutter` compiler image if missing, runs package resolution, and compiles the release APK).*
 
-2. **Trigger Compilation**:
-   From the host machine, compile the release APK:
-   ```bash
-   make flutter-build-apk
-   # Or run manually:
-   # docker compose exec flutter flutter build apk --release
-   ```
-
-3. **Locate Build Output**:
+2. **Locate Build Output**:
    The output APK will be available in your project workspace on the host:
-   `projects/<your-app-name>/build/app/outputs/flutter-apk/app-release.apk`
+   `build/app/outputs/flutter-apk/app-release.apk`
+
+### Caching and Performance
+
+DevForge uses persistent Docker volumes to speed up compilation and avoid re-downloading dependencies on every run:
+- **`devforge_pub_cache`**: Caches resolved Dart packages from pub.dev.
+- **`devforge_gradle_cache`**: Caches Android SDK build tools, Gradle wrapper, and Maven/Gradle dependencies.
 
 ---
 
