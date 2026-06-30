@@ -273,6 +273,23 @@ x-security-defaults: &security-defaults
         """
         project.ensure_devforge_dir()
 
+        # Copy custom docker build context folders for the active plugins if they exist in DevForge
+        import shutil
+        devforge_root = get_devforge_root()
+        for plugin in plugins:
+            # Strip version suffix (e.g. postgres@16 -> postgres)
+            base_plugin = plugin.split("@")[0].strip()
+            src_docker_dir = devforge_root / "docker" / base_plugin
+            if src_docker_dir.exists():
+                dest_docker_dir = project.path / "docker" / base_plugin
+                if not dest_docker_dir.exists():
+                    try:
+                        dest_docker_dir.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copytree(src_docker_dir, dest_docker_dir)
+                        console.print(f"  [green]✓[/green] Copied docker context for [bold]{base_plugin}[/bold]")
+                    except Exception as e:
+                        console.print(f"  [yellow]⚠ Failed to copy docker context for {base_plugin}: {e}[/yellow]")
+
         profiles = ["dev", "testing", "production"]
 
         for profile in profiles:

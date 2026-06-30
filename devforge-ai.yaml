@@ -1,0 +1,40 @@
+# ==============================================================================
+# DEVFORGE v2 — AI SYSTEM CONFIGURATION
+# ==============================================================================
+# Configures provider keys, active models, fallbacks, and caching rules.
+# Environment variables like ${GROQ_API_KEY} will be automatically expanded.
+# ==============================================================================
+
+provider: groq
+model: llama-3.1-8b-instant
+temperature: 0.2
+max_tokens: 4096
+
+providers:
+  groq:
+    api_key: ${GROQ_API_KEY}
+    base_url: https://api.groq.com/openai/v1
+    models:
+      - llama-3.1-8b-instant
+      - llama-3.3-70b-versatile
+      - deepseek-r1-distill-llama-70b
+  gemini:
+    api_key: ${GEMINI_API_KEY}
+    models:
+      - gemini-2.0-flash-lite
+  ollama:
+    base_url: http://ollama:11434
+    models:
+      - qwen3:8b
+      - llama3.1:8b
+
+fallback_order:
+  - groq
+  - gemini
+  - ollama
+
+structured_output: true
+cache_plugins: true
+cache_responses: true
+request_timeout: 120
+max_retries: 3

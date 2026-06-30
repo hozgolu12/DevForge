@@ -27,6 +27,7 @@ DevForge v2 evolves from a static "everything on" platform into a **modular, pro
 | CLI engine | Shell scripts | Containerized Python engine (auto-built) |
 | Workspace manifest | ❌ | ✅ `devforge.json` per project |
 | v1 compatibility | — | ✅ All v1 commands unchanged |
+| AI Plugin Generation | ❌ | ✅ Dynamic AI plugin generation for unknown tech (Supabase, Milvus, etc.) |
 
 ---
 
@@ -217,7 +218,7 @@ cp .env.example .env
 
 > [!TIP]
 > **Global CLI Shortcut:** To run `devforge` globally from any folder:
-> - **PowerShell (Windows):** Run `Add-Content -Path $PROFILE -Value "function devforge { & 'D:\Coding\DevForge\devforge.ps1' \`@args }"` to register it permanently.
+> - **PowerShell (Windows):** Run `Add-Content -Path $PROFILE -Value 'function devforge { & "C:\path\to\DevForge\devforge.ps1" $args }'` (replace with your actual folder path) to register it permanently.
 > - **Bash/Zsh (Linux/macOS):** Add `alias devforge="/path/to/DevForge/devforge"` to your `~/.bashrc` or `~/.zshrc` file.
 
 ---
@@ -549,6 +550,88 @@ Key groups:
 | Storage | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` |
 | Messaging | `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
 | Auth | `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` |
+
+---
+
+## AI Plugin Generation System
+
+DevForge features a production-grade **AI Plugin Generation System** designed to dynamically detect unknown technologies (e.g. Supabase, Milvus, Temporal, Convex, Appwrite, etc.) in your projects, enrich their metadata, query an AI model to generate a custom plugin, validate it, render the configuration files, and install it.
+
+All AI logic and SDKs run strictly **inside** the containerized `devforge-cli:2.0` environment.
+
+### Workflow Pipeline
+
+```
+Project ──► Scan (devforge detect) ──► Unknown Technology?
+                                              │
+                                              ▼ (Yes)
+                                    Enrich (Metadata & Knowledge)
+                                              │
+                                              ▼
+                                    Check Plugin Cache (generated/) ──► Found?
+                                              │                           │
+                                              ▼ (No)                      ▼ (Yes)
+                                    AI Plugin Generator ──────────► Reuse Plugin
+                                              │
+                                              ▼
+                                    Plugin Validator (Schema, Ports, Compose)
+                                              │
+                                              ▼
+                                    Plugin Renderer (Jinja Templates)
+                                              │
+                                              ▼
+                                    Plugin Registry (plugins.yaml)
+                                              │
+                                              ▼
+                                    Install Plugin (Y/N/V)
+```
+
+### Configuration (`devforge-ai.yaml`)
+
+Configuration file is loaded from `/workspace/devforge-ai.yaml` or `/devforge/devforge-ai.yaml`. It manages active model settings, caching policies, timeouts, and fallbacks.
+
+```yaml
+provider: groq
+model: llama-3.1-8b-instant
+temperature: 0.2
+max_tokens: 4096
+
+providers:
+  groq:
+    api_key: ${GROQ_API_KEY}
+    base_url: https://api.groq.com/openai/v1
+    models:
+      - llama-3.1-8b-instant
+      - llama-3.3-70b-versatile
+  gemini:
+    api_key: ${GEMINI_API_KEY}
+    models:
+      - gemini-2.0-flash-lite
+  ollama:
+    base_url: http://ollama:11434
+    models:
+      - qwen3:8b
+```
+
+### CLI Command Reference
+
+Scan the active workspace and generate/install plugins dynamically:
+```powershell
+# Default interactive mode
+.\devforge.ps1 detect
+
+# Non-interactive mode (auto-accepts and installs)
+.\devforge.ps1 detect --yes
+
+# Override the AI Provider and Model
+.\devforge.ps1 detect --provider gemini --model gemini-2.0-flash-lite
+```
+
+Pass the required provider keys via shell environment variables to make them available in the CLI container:
+```powershell
+$env:GROQ_API_KEY="your-groq-key"
+$env:GEMINI_API_KEY="your-gemini-key"
+```
 
 ---
 

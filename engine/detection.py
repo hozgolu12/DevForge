@@ -218,6 +218,51 @@ class DetectionEngine:
         if csproj_files or any(cls._file_contains(p, ["WebApplication.CreateBuilder"]) for p in all_files if p.name == "Program.cs"):
             results["Backend"]["ASP.NET Core"] = True
 
+        # Go frameworks
+        if any("go.mod" in p.name for p in all_files):
+            go_mods = [p for p in all_files if p.name == "go.mod"]
+            if go_mods:
+                try:
+                    content = go_mods[0].read_text(encoding="utf-8", errors="ignore")
+                    if "github.com/gin-gonic/gin" in content:
+                        results["Backend"]["Gin"] = True
+                    if "github.com/gofiber/fiber" in content:
+                        results["Backend"]["Fiber"] = True
+                except Exception:
+                    pass
+
+        # Rust frameworks
+        if any("Cargo.toml" in p.name for p in all_files):
+            cargo_tomls = [p for p in all_files if p.name == "Cargo.toml"]
+            if cargo_tomls:
+                try:
+                    content = cargo_tomls[0].read_text(encoding="utf-8", errors="ignore")
+                    if "axum" in content:
+                        results["Backend"]["Axum"] = True
+                    if "rocket" in content:
+                        results["Backend"]["Rocket"] = True
+                except Exception:
+                    pass
+
+        # PHP frameworks
+        if any("composer.json" in p.name for p in all_files):
+            composer_jsons = [p for p in all_files if p.name == "composer.json"]
+            if composer_jsons:
+                try:
+                    with open(composer_jsons[0], "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        req = data.get("require", {})
+                        if "laravel/framework" in req:
+                            results["Backend"]["Laravel"] = True
+                        if "symfony/symfony" in req or "symfony/framework-bundle" in req:
+                            results["Backend"]["Symfony"] = True
+                except Exception:
+                    pass
+
+        # Ruby frameworks
+        if any("Gemfile" in p.name for p in all_files) or any("config/application.rb" in str(p) for p in all_files):
+            results["Backend"]["Rails"] = True
+
         # --------------------------------------------------
         # HEURISTICS: Mobile
         # --------------------------------------------------
@@ -231,7 +276,7 @@ class DetectionEngine:
         # --------------------------------------------------
         if "mongodb" in js_deps or "mongoose" in js_deps or "pymongo" in py_deps or "motor" in py_deps:
             results["Database"]["MongoDB"] = True
-        if "pg" in js_deps or "sequelize" in js_deps or "typeorm" in js_deps or "psycopg2" in py_deps or "psycopg" in py_deps or "asyncpg" in py_deps or "postgresql" in java_content:
+        if "pg" in js_deps or "sequelize" in js_deps or "typeorm" in js_deps or "psycopg2" in py_deps or "psycopg2-binary" in py_deps or "psycopg" in py_deps or "asyncpg" in py_deps or "postgresql" in java_content:
             results["Database"]["PostgreSQL"] = True
         if "mysql" in js_deps or "mysql2" in js_deps or "mysqlclient" in py_deps or "pymysql" in py_deps:
             results["Database"]["MySQL"] = True
@@ -257,6 +302,8 @@ class DetectionEngine:
             results["Vector Database"]["Milvus"] = True
         if "weaviate-client" in py_deps or "weaviate-client" in js_deps:
             results["Vector Database"]["Weaviate"] = True
+        if "pgvector" in py_deps or "pgvector" in js_deps or any(cls._file_contains(p, ["import pgvector", "pgvector"]) for p in python_files[:15]):
+            results["Vector Database"]["pgvector"] = True
 
         # --------------------------------------------------
         # HEURISTICS: AI

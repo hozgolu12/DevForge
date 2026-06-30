@@ -191,12 +191,25 @@ def cmd_import(import_path, no_interactive):
 # ──────────────────────────────────────────────────────────────────────────────
 
 @cli.command("detect")
-def cmd_detect():
-    """Analyze the current project without modifying any files."""
+@click.option("--yes", "-y", is_flag=True, help="Automatically install generated plugins without prompting")
+@click.option("--provider", help="AI Provider override (groq, gemini, ollama, openai)")
+@click.option("--model", help="AI Model override")
+def cmd_detect(yes, provider, model):
+    """Analyze the current project and optionally generate and install plugins for unknown technologies."""
     from pathlib import Path
+    import json
     from engine.detection import DetectionEngine
+    from engine.plugins.registry import PluginRegistry
+    from engine.plugins.cache import PluginCache
+    from engine.plugins.validator import PluginValidator
+    from engine.plugins.renderer import PluginRenderer
+    from engine.plugins.installer import PluginInstaller
+    from engine.ai.plugin_generator import AIPluginGenerator
+    from engine.config.ai_config import AIConfig
+    from engine.workspace import WorkspaceManager
 
     workspace_root = Path("/workspace")
+    console.print("Scanning...")
     detected = DetectionEngine.detect(workspace_root, force=True)
 
     # Output detected technologies in the exact requested format
@@ -249,7 +262,213 @@ def cmd_detect():
             console.print(f"- {rec}")
         console.print("")
 
-    console.print("No files modified.")
+    # 1. Identify unknown technologies
+    all_detected_techs = []
+    for cat in ["Database", "Cache", "Vector Database", "Messaging", "Monitoring", "Storage"]:
+        if cat in detected:
+            for tech in detected[cat].keys():
+                all_detected_techs.append(tech)
+
+    # Enumerate potential candidates from packages/metadata
+    from engine.detector.metadata_collector import MetadataCollector
+    metadata = MetadataCollector.collect(workspace_root)
+    package_candidates = {
+        "supabase": "Supabase",
+        "pgvector": "pgvector",
+        "milvus": "Milvus",
+        "temporal": "Temporal",
+        "convex": "Convex",
+        "appwrite": "Appwrite",
+        "meilisearch": "Meilisearch",
+        "typesense": "Typesense",
+        "weaviate": "Weaviate",
+    }
+    for pkg in metadata["packages"]:
+        pkg_lower = pkg.lower()
+        for cand_key, cand_name in package_candidates.items():
+            if cand_key in pkg_lower and cand_name not in all_detected_techs:
+                all_detected_techs.append(cand_name)
+
+    # Filter out those that already exist in the registry
+    unknown_techs = []
+    for tech in all_detected_techs:
+        if not PluginRegistry.plugin_exists(tech):
+            unknown_techs.append(tech)
+
+    if not unknown_techs:
+        console.print("No unknown technologies detected.")
+        console.print("No files modified.")
+        return
+
+    # Load project to install plugins if any are accepted
+    ws = WorkspaceManager()
+    project = ws.resolve_project(None, required=False)
+    
+    # Resolve active project ports for validation conflicts
+    active_ports = {}
+    if project and project.exists():
+        try:
+            manifest = project.load_manifest()
+            active_ports = manifest.get("ports", {})
+        except Exception:
+            pass
+
+    for tech in unknown_techs:
+        console.print(f"\n[bold yellow]Unknown Technology[/bold yellow]")
+        console.print(f"[bold white]{tech}[/bold white]")
+
+        # 2. Check generated plugin cache
+        console.print("Searching generated plugins...")
+        spec = None
+        
+        # Check cache
+        if PluginCache.exists(tech):
+            console.print("✓ Reuse Generated Plugin")
+            try:
+                # Read from cache directory
+                cache_dir = PluginCache.get_path(tech)
+                plugin_yaml_path = cache_dir / "plugin.yaml"
+                import yaml
+                from engine.ai.models import PluginSpecification
+                with open(plugin_yaml_path, "r", encoding="utf-8") as f:
+                    cached_data = yaml.safe_load(f)
+                
+                # Reconstruct specification safely
+                from engine.ai.models import PortSpecification
+                ports_list = []
+                for p in cached_data.get("ports", []):
+                    ports_list.append(PortSpecification(
+                        host=p["host"],
+                        container=p["container"],
+                        env_key=p["env_key"]
+                    ))
+                
+                # Check healthcheck
+                health_dict = None
+                compose_frag_path = cache_dir / "compose.fragment.yaml"
+                if compose_frag_path.exists():
+                    with open(compose_frag_path, "r", encoding="utf-8") as f:
+                        comp_data = yaml.safe_load(f) or {}
+                    svc_cfg = comp_data.get("services", {}).get(cached_data.get("name"), {})
+                    if "healthcheck" in svc_cfg:
+                        h = svc_cfg["healthcheck"]
+                        from engine.ai.models import HealthCheckSpecification
+                        health_dict = HealthCheckSpecification(
+                            test=h.get("test", []),
+                            interval=h.get("interval", "10s"),
+                            timeout=h.get("timeout", "5s"),
+                            retries=h.get("retries", 3),
+                            start_period=h.get("start_period", "5s")
+                        )
+
+                spec = PluginSpecification(
+                    plugin_name=cached_data.get("name"),
+                    display_name=cached_data.get("display_name"),
+                    description=cached_data.get("description"),
+                    category=cached_data.get("category"),
+                    docker_image=cached_data.get("image_base"),
+                    service_name=cached_data.get("name"),
+                    ports=ports_list,
+                    environment_variables=cached_data.get("env", {}),
+                    volumes=cached_data.get("volumes", []),
+                    healthcheck=health_dict,
+                    dependencies=cached_data.get("depends_on", []),
+                    version=cached_data.get("version", "1.0.0")
+                )
+            except Exception as e:
+                console.print(f"[yellow]⚠ Failed to load cached plugin spec: {e}. Re-generating...[/yellow]")
+                spec = None
+
+        if not spec:
+            console.print("No plugin found.")
+            console.print("Generating plugin...")
+            
+            # Resolve provider and model for display
+            ai_config = AIConfig.load()
+            prov_name = provider or ai_config.provider
+            
+            # Resolve model name
+            model_name = model
+            if not model_name:
+                if prov_name.lower() == ai_config.provider.lower():
+                    model_name = ai_config.model
+                else:
+                    p_cfg = ai_config.providers.get(prov_name)
+                    model_name = p_cfg.models[0] if p_cfg and p_cfg.models else "latest"
+            
+            console.print(f"Provider\n[cyan]{prov_name}[/cyan]\nModel\n[cyan]{model_name}[/cyan]")
+            
+            # Call generator
+            spec = AIPluginGenerator.generate(
+                technology_name=tech,
+                project_path=workspace_root,
+                provider_override=provider,
+                model_override=model
+            )
+
+        if not spec:
+            console.print("[red]Unknown technology detected. No AI provider available. Project configuration preserved. Continue detection.[/red]")
+            continue
+
+        # 3. Validate
+        val_res = PluginValidator.validate(spec, active_ports)
+        if not val_res.passed:
+            console.print("Validation\n[red]✗ Failed[/red]")
+            for err in val_res.errors:
+                console.print(f"  - [red]{err}[/red]")
+            for warn in val_res.warnings:
+                console.print(f"  - [yellow]{warn}[/yellow]")
+            continue
+        
+        console.print("Validation\n[green]✓ Passed[/green]")
+
+        # 4. Interactive prompt
+        install_accepted = False
+        if yes:
+            install_accepted = True
+        else:
+            action = None
+            while True:
+                choice = click.prompt(
+                    "Install plugin? [Y]es, [N]o, [V]iew spec", 
+                    type=click.Choice(["y", "n", "v"], case_sensitive=False),
+                    default="y"
+                )
+                if choice.lower() == "v":
+                    console.print(Panel(
+                        json.dumps(spec.model_dump(), indent=2),
+                        title=f"[bold cyan]{spec.display_name} Specification[/bold cyan]",
+                        box=box.ROUNDED
+                    ))
+                else:
+                    action = choice.lower()
+                    break
+            
+            if action == "y":
+                install_accepted = True
+
+        if install_accepted:
+            # 5. Render, Register and Install
+            # Render files
+            renderer = PluginRenderer()
+            plugin_dir = PluginCache.get_generated_dir() / spec.plugin_name
+            renderer.render(spec, plugin_dir)
+
+            # Register in registry
+            rel_path = f"plugins/generated/{spec.plugin_name}"
+            PluginRegistry.register_plugin(spec, rel_path)
+
+            # Install if active project exists
+            if project and project.exists():
+                console.print(f"[cyan]Installing plugin '{spec.plugin_name}' into project '{project.name}'...[/cyan]")
+                if PluginInstaller.install(spec.plugin_name, project):
+                    console.print(f"[green]✓ Plugin installed successfully.[/green]")
+                else:
+                    console.print(f"[red]✗ Installation failed.[/red]")
+            else:
+                console.print(f"[yellow]⚠ No active project found. Plugin registered and cached successfully.[/yellow]")
+
+    console.print("\nNo files modified.")
 
 
 # ──────────────────────────────────────────────────────────────────────────────

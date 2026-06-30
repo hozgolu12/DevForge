@@ -1,8 +1,0 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
-.project
-.classpath
-.settings/
-.idea/
-*.iml
-.env

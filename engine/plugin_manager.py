@@ -98,17 +98,24 @@ class PluginManager:
         """Add a plugin to a project and regenerate compose files."""
         name, version = _parse_spec(plugin_spec)
 
-        # Validate plugin exists
-        plugin_path = PLUGINS_DIR / name
-        if not plugin_path.exists():
-            # Try versioned path
-            if version:
-                plugin_path = PLUGINS_DIR / f"{name}@{version}"
+        # Resolve path using registry lookup first to support generated plugins
+        from engine.plugins.registry import PluginRegistry
+        registry_entry = PluginRegistry.find_plugin(name)
+        plugin_path = None
+        if registry_entry and "path" in registry_entry:
+            plugin_path = get_devforge_root() / registry_entry["path"]
+
+        if not plugin_path or not plugin_path.exists():
+            plugin_path = PLUGINS_DIR / name
             if not plugin_path.exists():
-                console.print(
-                    f"[red]✗ Plugin '{name}' not found in plugins/ directory.[/red]"
-                )
-                raise SystemExit(1)
+                # Try versioned path
+                if version:
+                    plugin_path = PLUGINS_DIR / f"{name}@{version}"
+                if not plugin_path.exists():
+                    console.print(
+                        f"[red]✗ Plugin '{name}' not found in plugins/ directory.[/red]"
+                    )
+                    raise SystemExit(1)
 
         # Load and update manifest
         manifest = project.load_manifest()
@@ -179,6 +186,15 @@ class PluginManager:
     def _regenerate_compose(project: Project, manifest: dict):
         """Trigger compose regeneration after plugin changes."""
         from engine.composer import ComposeGenerator
+        from engine.generator import ProjectGenerator
+
+        # Regenerate .env and .env.example with the new plugin configuration
+        ProjectGenerator()._generate_env(
+            project=project,
+            plugins=manifest.get("plugins", []),
+            ports=manifest.get("ports", {}),
+        )
+
         console.print("[cyan]  Regenerating compose files...[/cyan]")
         ComposeGenerator().write_compose_files(
             project=project,

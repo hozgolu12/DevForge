@@ -9,7 +9,12 @@
 # Usage: .\devforge.ps1 <command> [arguments]
 # ==============================================================================
 
-$command = $args[0]
+$cmdArgs = $args
+# Flatten arguments if passed as a nested array (e.g. from wrapper functions)
+if ($args[0] -is [System.Array]) {
+    $cmdArgs = $args[0]
+}
+$command = $cmdArgs[0]
 
 # Helper function to print headers
 function Write-Header($text) {
@@ -62,13 +67,19 @@ if ($V2_COMMANDS -contains $command) {
 
     # Handle import volume mapping
     $importVolumeOpts = @()
-    if ($command -eq "import" -and $args.Count -ge 2) {
-        $importPath = $args[1]
+    if ($command -eq "import" -and $cmdArgs.Count -ge 2) {
+        $importPath = $cmdArgs[1]
         $absImportPath = Resolve-Path $importPath -ErrorAction SilentlyContinue
         if ($absImportPath) {
             $absImportPathString = $absImportPath.Path
             $importVolumeOpts = @("-v", "${absImportPathString}:/import_target")
         }
+    }
+
+    # Handle .env file forwarding if present in current directory
+    $envFileOpts = @()
+    if (Test-Path "$PWD/.env") {
+        $envFileOpts = @("--env-file", "$PWD/.env")
     }
 
     # Run the CLI engine inside an ephemeral container
@@ -77,11 +88,15 @@ if ($V2_COMMANDS -contains $command) {
     # -v PWD        : mounts workspace so generated files appear on host
     # -v docker.sock: allows the CLI to run docker compose commands
     docker run --rm -it `
+        -e GROQ_API_KEY `
+        -e GEMINI_API_KEY `
+        -e OPENAI_API_KEY `
+        $envFileOpts `
         -v "${PWD}:/workspace" `
         $importVolumeOpts `
         -v "${DEVFORGE_ROOT}:/devforge" `
         -v "/var/run/docker.sock:/var/run/docker.sock" `
-        $CLI_IMAGE @args
+        $CLI_IMAGE @cmdArgs
 
     exit $LASTEXITCODE
 }
@@ -89,58 +104,63 @@ if ($V2_COMMANDS -contains $command) {
 switch ($command) {
     "up" {
         Write-Header "Starting DevForge Services"
-        docker-compose up -d
+        docker compose up -d
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMsg "Failed to start DevForge services."
             exit $LASTEXITCODE
         }
         Write-Success "DevForge is running."
+        break
     }
     "down" {
         Write-Header "Stopping DevForge Services"
-        docker-compose down
+        docker compose down
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMsg "Failed to stop DevForge services."
             exit $LASTEXITCODE
         }
         Write-Success "DevForge has stopped."
+        break
     }
     "restart" {
-        $service = $args[1]
+        $service = $cmdArgs[1]
         if ($service) {
             Write-Header "Restarting DevForge service '$service'"
-            docker-compose restart $service
+            docker compose restart $service
         } else {
             Write-Header "Restarting all DevForge services"
-            docker-compose restart
+            docker compose restart
         }
         if ($LASTEXITCODE -ne 0) {
             Write-ErrorMsg "Failed to restart DevForge services."
             exit $LASTEXITCODE
         }
         Write-Success "Restart complete."
+        break
     }
     "status" {
         Write-Header "DevForge Container Status"
-        docker-compose ps
+        docker compose ps
+        break
     }
     "logs" {
-        $service = $args[1]
+        $service = $cmdArgs[1]
         if (-not $service) {
             Write-ErrorMsg "Please specify a service name. Usage: .\devforge.ps1 logs <service>"
             exit 1
         }
         Write-Header "Output logs for '$service' (Press Ctrl+C to exit)"
-        docker-compose logs -f --tail=100 $service
+        docker compose logs -f --tail=100 $service
+        break
     }
     "shell" {
-        $service = $args[1]
+        $service = $cmdArgs[1]
         if (-not $service) {
             Write-ErrorMsg "Please specify a service name. Usage: .\devforge.ps1 shell <service>"
             exit 1
         }
         Write-Header "Opening shell inside container '$service'"
-        $container_ids = @(docker-compose ps -q $service)
+        $container_ids = @(docker compose ps -q $service)
         $container_id = $container_ids[0]
         if ($container_id) {
             $shell = "sh"
@@ -151,14 +171,15 @@ switch ($command) {
                     break
                 }
             }
-            docker-compose exec $service $shell
+            docker compose exec $service $shell
         } else {
             Write-ErrorMsg "Container for '$service' is not running."
         }
+        break
     }
     "create" {
-        $template = $args[1]
-        $name = $args[2]
+        $template = $cmdArgs[1]
+        $name = $cmdArgs[2]
         if (-not $template -or -not $name) {
             Write-ErrorMsg "Usage: .\devforge.ps1 create <template> <project_name>"
             Write-Host "Available templates: react, nextjs, express, nestjs, fastapi, flask, django, springboot, flutter, ai"
@@ -171,6 +192,7 @@ switch ($command) {
         } else {
             Write-ErrorMsg "Template '$template' does not exist."
         }
+        break
     }
     "doctor" {
         Write-Header "DevForge Diagnostic Doctor"
@@ -187,12 +209,12 @@ switch ($command) {
 
         # Check Compose Topology
         Write-Host "Checking Compose configuration syntax..." -NoNewline
-        docker-compose config -q >$null 2>&1
+        docker compose config -q >$null 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Host " [VALID]" -ForegroundColor Green
         } else {
             Write-Host " [INVALID]" -ForegroundColor Red
-            docker-compose config
+            docker compose config
         }
 
         # Check Configured Ports
@@ -222,44 +244,177 @@ switch ($command) {
                 Write-Host " [FREE]" -ForegroundColor Yellow
             }
         }
+        break
     }
     "backup" {
         Write-Header "Executing database backups"
         bash "./scripts/db-backup.sh"
+        break
     }
     "restore" {
-        $folder = $args[1]
+        $folder = $cmdArgs[1]
         if (-not $folder) {
             Write-ErrorMsg "Please specify a backup directory. Usage: .\devforge.ps1 restore backups/YYYYMMDD_HHMMSS"
             exit 1
         }
         Write-Header "Restoring databases from snapshot '$folder'"
         bash "./scripts/db-restore.sh" $folder
+        break
     }
     "seed" {
         Write-Header "Seeding active databases"
         bash "./scripts/db-seed.sh"
+        break
     }
     "build-apk" {
         Write-Header "Compiling Flutter release APK"
-        docker-compose exec flutter flutter build apk --release
+        $flutterPath = $null
+        if (Test-Path "pubspec.yaml") {
+            $flutterPath = Resolve-Path "pubspec.yaml"
+        } elseif (Test-Path "projects/sample-flutter/pubspec.yaml") {
+            $flutterPath = Resolve-Path "projects/sample-flutter/pubspec.yaml"
+        } else {
+            $found = Get-ChildItem -Filter "pubspec.yaml" -Recurse -ErrorAction SilentlyContinue | 
+                     Where-Object { $_.FullName -notmatch "\\(\.git|\.devforge|node_modules|build|\.venv)\\ " } | 
+                     Select-Object -First 1
+            if ($found) {
+                $flutterPath = $found.FullName
+            }
+        }
+
+        if (-not $flutterPath) {
+            Write-ErrorMsg "No Flutter project (pubspec.yaml) found in the current directory or subdirectories."
+            exit 1
+        }
+
+        $flutterDir = Split-Path -Parent $flutterPath
+        Write-Host "Found Flutter project at: $flutterDir" -ForegroundColor Yellow
+
+        $FLUTTER_IMAGE = "devforge-flutter"
+        $imageExists = docker image inspect $FLUTTER_IMAGE 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+            if (-not $DEVFORGE_ROOT) { $DEVFORGE_ROOT = $PSScriptRoot }
+
+            Write-Host "[DevForge] Flutter compiler image '$FLUTTER_IMAGE' not found. Building automatically (this may take a few minutes)..." -ForegroundColor Yellow
+            docker build -t $FLUTTER_IMAGE -f "$DEVFORGE_ROOT/docker/flutter/Dockerfile" "$DEVFORGE_ROOT"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[DevForge] ERROR: Failed to build Flutter compiler image." -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "[DevForge] Flutter compiler image built successfully." -ForegroundColor Green
+        }
+
+        docker run --rm `
+            -v "${flutterDir}:/workspace" `
+            -w /workspace `
+            -v "devforge_gradle_cache:/home/devforge/.gradle" `
+            -v "devforge_pub_cache:/home/devforge/.pub-cache" `
+            $FLUTTER_IMAGE bash -c "flutter pub get && flutter build apk --release"
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMsg "Failed to compile Flutter release APK."
+            exit $LASTEXITCODE
+        }
         Write-Success "APK compilation finished."
+        break
+    }
+    "build" {
+        $sub = $cmdArgs[1]
+        if ($sub -eq "apk") {
+            Write-Header "Compiling Flutter release APK"
+            $flutterPath = $null
+            if (Test-Path "pubspec.yaml") {
+                $flutterPath = Resolve-Path "pubspec.yaml"
+            } elseif (Test-Path "projects/sample-flutter/pubspec.yaml") {
+                $flutterPath = Resolve-Path "projects/sample-flutter/pubspec.yaml"
+            } else {
+                $found = Get-ChildItem -Filter "pubspec.yaml" -Recurse -ErrorAction SilentlyContinue | 
+                         Where-Object { $_.FullName -notmatch "\\(\.git|\.devforge|node_modules|build|\.venv)\\ " } | 
+                         Select-Object -First 1
+                if ($found) {
+                    $flutterPath = $found.FullName
+                }
+            }
+
+            if (-not $flutterPath) {
+                Write-ErrorMsg "No Flutter project (pubspec.yaml) found in the current directory or subdirectories."
+                exit 1
+            }
+
+            $flutterDir = Split-Path -Parent $flutterPath
+            Write-Host "Found Flutter project at: $flutterDir" -ForegroundColor Yellow
+
+            $FLUTTER_IMAGE = "devforge-flutter"
+            $imageExists = docker image inspect $FLUTTER_IMAGE 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
+                if (-not $DEVFORGE_ROOT) { $DEVFORGE_ROOT = $PSScriptRoot }
+
+                Write-Host "[DevForge] Flutter compiler image '$FLUTTER_IMAGE' not found. Building automatically (this may take a few minutes)..." -ForegroundColor Yellow
+                docker build -t $FLUTTER_IMAGE -f "$DEVFORGE_ROOT/docker/flutter/Dockerfile" "$DEVFORGE_ROOT"
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Host "[DevForge] ERROR: Failed to build Flutter compiler image." -ForegroundColor Red
+                    exit 1
+                }
+                Write-Host "[DevForge] Flutter compiler image built successfully." -ForegroundColor Green
+            }
+
+            docker run --rm `
+                -v "${flutterDir}:/workspace" `
+                -w /workspace `
+                -v "devforge_gradle_cache:/home/devforge/.gradle" `
+                -v "devforge_pub_cache:/home/devforge/.pub-cache" `
+                $FLUTTER_IMAGE bash -c "flutter pub get && flutter build apk --release"
+
+            if ($LASTEXITCODE -ne 0) {
+                Write-ErrorMsg "Failed to compile Flutter release APK."
+                exit $LASTEXITCODE
+            }
+            Write-Success "APK compilation finished."
+        } else {
+            Write-Header "Building custom DevForge images"
+            docker compose build
+            if ($LASTEXITCODE -ne 0) {
+                Write-ErrorMsg "Failed to build DevForge images."
+                exit $LASTEXITCODE
+            }
+            Write-Success "Build complete."
+        }
+        break
     }
     default {
         Write-Host "DevForge local developer platform CLI" -ForegroundColor Cyan
         Write-Host "Usage: .\devforge.ps1 <command> [arguments]"
-        Write-Host "`nAvailable Commands:"
-        Write-Host "  up               Start all DevForge services"
-        Write-Host "  down             Stop all DevForge services"
-        Write-Host "  restart [svc]    Restart a specific or all services"
-        Write-Host "  status           Show running containers status"
-        Write-Host "  logs <svc>       View tailing logs for a service"
-        Write-Host "  shell <svc>      Open interactive terminal inside a container"
-        Write-Host "  create <t> <n>   Generate project <n> from template <t>"
+        
+        Write-Host "`nProject-aware Commands (v2):" -ForegroundColor Green
+        Write-Host "  new              Create a new project interactively"
+        Write-Host "  init             Initialize the current directory as a project"
+        Write-Host "  import <path>    Import an existing project from another directory"
+        Write-Host "  detect           Scan the current project for technologies"
+        Write-Host "  template         Manage code templates"
+        Write-Host "  plugin           Manage service plugins (list, install, remove)"
+        Write-Host "  use <project>    Set the active project for subsequent commands"
+        Write-Host "  start <svc>      Start a specific project service"
+        Write-Host "  stop <svc>       Stop a specific project service"
+        Write-Host "  restart <svc>    Restart a specific project service"
+        Write-Host "  logs <svc>       Tail logs for a project service"
+        Write-Host "  shell <svc>      Open a shell inside a project service container"
+        Write-Host "  update           Update the DevForge CLI image"
+
+        Write-Host "`nPlatform-wide Commands (v1):" -ForegroundColor Green
+        Write-Host "  up               Start all platform services"
+        Write-Host "  down             Stop all platform services"
+        Write-Host "  restart          Restart all platform services"
+        Write-Host "  status           Show running platform containers status"
+        Write-Host "  logs             View tailing logs for platform services"
+        Write-Host "  shell            Open interactive terminal inside a platform container"
+        Write-Host "  create <t> <n>   Scaffold a standalone template project"
         Write-Host "  doctor           Run platform health diagnostics"
-        Write-Host "  backup           Back up active databases"
+        Write-Host "  backup           Back up platform databases"
         Write-Host "  restore <f>      Restore database state from snapshot folder <f>"
         Write-Host "  seed             Populate databases with starter data"
-        Write-Host "  build-apk        Compile Flutter Android APK release target"
+        Write-Host "  build            Build custom DevForge platform images"
+        Write-Host "  build apk        Compile Flutter Android APK release target"
     }
 }
