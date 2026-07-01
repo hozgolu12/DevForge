@@ -45,7 +45,9 @@ $CLI_DOCKERFILE = "docker/cli/Dockerfile"
 # Commands handled by the v2 Python CLI engine (inside container)
 $V2_COMMANDS = @("new", "template", "plugin", "start", "stop", "generate", "use", "update", "self-update", "init", "import", "detect")
 
-if ($V2_COMMANDS -contains $command) {
+$isProjectCmd = ($cmdArgs -contains "--project") -or ($cmdArgs -contains "-p") -or ($cmdArgs -contains "--all") -or ($cmdArgs -contains "-a") -or ($cmdArgs -contains "--help") -or ($cmdArgs -contains "-h")
+
+if ($V2_COMMANDS -contains $command -or $isProjectCmd) {
 
     # Resolve DevForge root directory (where this script resides)
     $DEVFORGE_ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -384,6 +386,9 @@ switch ($command) {
         break
     }
     default {
+        if ($command -and $command -ne "help" -and $command -ne "commands") {
+            Write-ErrorMsg "Unknown command '$command'`n"
+        }
         Write-Host "DevForge local developer platform CLI" -ForegroundColor Cyan
         Write-Host "Usage: .\devforge.ps1 <command> [arguments]"
         
@@ -393,7 +398,7 @@ switch ($command) {
         Write-Host "  import <path>    Import an existing project from another directory"
         Write-Host "  detect           Scan the current project for technologies"
         Write-Host "  template         Manage code templates"
-        Write-Host "  plugin           Manage service plugins (list, install, remove)"
+        Write-Host "  plugin           Manage service plugins (list, install, remove, create)"
         Write-Host "  use <project>    Set the active project for subsequent commands"
         Write-Host "  start <svc>      Start a specific project service"
         Write-Host "  stop <svc>       Stop a specific project service"

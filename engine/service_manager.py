@@ -55,7 +55,7 @@ class ServiceManager:
     # Per-service commands
     # ──────────────────────────────────────────────────────────────────────────
 
-    def start(self, service: str, project: Project, profile: str = "dev"):
+    def start(self, service: str, project: Project, profile: str = "dev", exit_on_complete: bool = True):
         compose = self._compose_file(project, profile)
         console.print(
             f"[cyan]Starting [bold]{service}[/bold] "
@@ -64,9 +64,11 @@ class ServiceManager:
         rc = self._run(["up", "-d", service], compose)
         if rc == 0:
             console.print(f"[green]✓[/green] [bold]{service}[/bold] is running.")
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
-    def stop(self, service: str, project: Project):
+    def stop(self, service: str, project: Project, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Stopping [bold]{service}[/bold] in '[bold]{project.name}[/bold]'...[/cyan]"
@@ -74,9 +76,11 @@ class ServiceManager:
         rc = self._run(["stop", service], compose)
         if rc == 0:
             console.print(f"[green]✓[/green] [bold]{service}[/bold] stopped.")
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
-    def restart(self, service: str, project: Project):
+    def restart(self, service: str, project: Project, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Restarting [bold]{service}[/bold] in '[bold]{project.name}[/bold]'...[/cyan]"
@@ -84,18 +88,22 @@ class ServiceManager:
         rc = self._run(["restart", service], compose)
         if rc == 0:
             console.print(f"[green]✓[/green] [bold]{service}[/bold] restarted.")
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
-    def logs(self, service: str, project: Project, tail: int = 100):
+    def logs(self, service: str, project: Project, tail: int = 100, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Tailing logs for [bold]{service}[/bold] "
             f"in '[bold]{project.name}[/bold]' (press Ctrl+C to exit)...[/cyan]\n"
         )
         rc = self._run(["logs", "-f", f"--tail={tail}", service], compose)
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
-    def shell(self, service: str, project: Project):
+    def shell(self, service: str, project: Project, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Opening shell in [bold]{service}[/bold] "
@@ -108,21 +116,25 @@ class ServiceManager:
             )
             if result.returncode == 0:
                 break
-        sys.exit(result.returncode)
+        if exit_on_complete:
+            sys.exit(result.returncode)
+        return result.returncode
 
-    def status(self, project: Project):
+    def status(self, project: Project, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Container status for '[bold]{project.name}[/bold]':[/cyan]"
         )
         rc = self._run(["ps"], compose)
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
     # ──────────────────────────────────────────────────────────────────────────
     # Full project up / down
     # ──────────────────────────────────────────────────────────────────────────
 
-    def up_all(self, project: Project, profile: str = "dev"):
+    def up_all(self, project: Project, profile: str = "dev", exit_on_complete: bool = True):
         compose = self._compose_file(project, profile)
         console.print(
             f"[cyan]Starting all services for '[bold]{project.name}[/bold]' "
@@ -131,9 +143,11 @@ class ServiceManager:
         rc = self._run(["up", "-d"], compose)
         if rc == 0:
             self._print_access_info(project, profile)
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
-    def down_all(self, project: Project):
+    def down_all(self, project: Project, exit_on_complete: bool = True):
         compose = self._compose_file(project)
         console.print(
             f"[cyan]Stopping all services for '[bold]{project.name}[/bold]'...[/cyan]"
@@ -143,7 +157,9 @@ class ServiceManager:
             console.print(
                 f"[green]✓[/green] All services for '[bold]{project.name}[/bold]' stopped."
             )
-        sys.exit(rc)
+        if exit_on_complete:
+            sys.exit(rc)
+        return rc
 
     def _print_access_info(self, project: Project, profile: str):
         """Print access URLs after a successful up."""

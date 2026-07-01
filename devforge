@@ -36,7 +36,16 @@ CLI_DOCKERFILE="docker/cli/Dockerfile"
 # Commands handled by the v2 Python CLI engine (inside container)
 V2_COMMANDS="new template plugin start stop generate use update self-update init import detect"
 
-if echo "$V2_COMMANDS" | grep -qw "$COMMAND"; then
+# Check if command is a v2 command OR has project/all/help flags
+IS_PROJECT_CMD=0
+for arg in "$@"; do
+    if [[ "$arg" == "--project" ]] || [[ "$arg" == "-p" ]] || [[ "$arg" == "--all" ]] || [[ "$arg" == "-a" ]] || [[ "$arg" == "--help" ]] || [[ "$arg" == "-h" ]]; then
+        IS_PROJECT_CMD=1
+        break
+    fi
+done
+
+if echo "$V2_COMMANDS" | grep -qw "$COMMAND" || [ $IS_PROJECT_CMD -eq 1 ]; then
 
     # Auto-build: detect if CLI image exists, build it automatically if missing
     if ! docker image inspect "$CLI_IMAGE" > /dev/null 2>&1; then
@@ -284,6 +293,9 @@ case "$COMMAND" in
         fi
         ;;
     *)
+        if [ "$COMMAND" != "help" ] && [ "$COMMAND" != "commands" ] && [ -n "$COMMAND" ]; then
+            print_error "Unknown command '$COMMAND'\n"
+        fi
         echo "DevForge local developer platform CLI"
         echo "Usage: ./devforge <command> [arguments]"
         
@@ -293,7 +305,7 @@ case "$COMMAND" in
         echo "  import <path>    Import an existing project from another directory"
         echo "  detect           Scan the current project for technologies"
         echo "  template         Manage code templates"
-        echo "  plugin           Manage service plugins (list, install, remove)"
+        echo "  plugin           Manage service plugins (list, install, remove, create)"
         echo "  use <project>    Set the active project for subsequent commands"
         echo "  start <svc>      Start a specific project service"
         echo "  stop <svc>       Stop a specific project service"

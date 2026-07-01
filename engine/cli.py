@@ -590,6 +590,78 @@ def plugin_remove(plugin_name, project):
     PluginManager().remove(plugin_name, proj)
 
 
+@plugin_group.command("create")
+@click.argument("plugin_name")
+@click.option("--display-name", help="Display name of the plugin")
+@click.option("--category", default="database", help="Category (e.g. database, cache, messaging, storage, ai, monitoring)")
+@click.option("--description", default="", help="Description of the plugin")
+@click.option("--image", help="Base Docker image name")
+@click.option("--tag", default="latest", help="Docker image tag")
+@click.option("--port", type=int, help="Default host port")
+@click.option("--container-port", type=int, help="Default container port")
+@click.option("--env-port-key", help="Environment variable for port config")
+def plugin_create(plugin_name, display_name, category, description, image, tag, port, container_port, env_port_key):
+    """Scaffold a new custom plugin in plugins/ and register it."""
+    from engine.ai.models import PluginSpecification, PortSpecification
+    from engine.plugins.renderer import PluginRenderer
+    from engine.plugins.registry import PluginRegistry
+    from engine.workspace import get_devforge_root
+    import re
+
+    # Clean name: lowercase alphanumeric and hyphens
+    clean_name = re.sub(r'[^a-z0-9-]', '', plugin_name.lower())
+    if not clean_name:
+        console.print("[red]✗ Invalid plugin name. Must contain alphanumeric characters or hyphens.[/red]")
+        sys.exit(1)
+
+    # Defaults if options not provided
+    disp_name = display_name or clean_name.replace('-', ' ').title()
+    desc = description or f"Custom plugin for {disp_name}"
+    img = image or f"library/{clean_name}"
+    
+    ports_spec = []
+    env_vars = {}
+    if port and container_port:
+        env_key = env_port_key or f"{clean_name.upper().replace('-', '_')}_PORT"
+        ports_spec.append(PortSpecification(
+            host=port,
+            container=container_port,
+            env_key=env_key
+        ))
+        env_vars[env_key] = str(port)
+
+    spec = PluginSpecification(
+        plugin_name=clean_name,
+        display_name=disp_name,
+        description=desc,
+        category=category,
+        docker_image=img,
+        docker_tag=tag,
+        service_name=clean_name,
+        ports=ports_spec,
+        environment_variables=env_vars,
+        version="1.0.0"
+    )
+
+    plugin_dir = get_devforge_root() / "plugins" / clean_name
+    if plugin_dir.exists():
+        console.print(f"[red]✗ Plugin directory 'plugins/{clean_name}' already exists.[/red]")
+        sys.exit(1)
+
+    console.print(f"[cyan]Scaffolding plugin '{clean_name}' in plugins/{clean_name}...[/cyan]")
+    renderer = PluginRenderer()
+    renderer.render(spec, plugin_dir)
+
+    # Register in registry/plugins.yaml
+    rel_path = f"plugins/{clean_name}"
+    if PluginRegistry.register_plugin(spec, rel_path):
+        console.print(f"[green]✓ Plugin '{clean_name}' created and registered successfully.[/green]")
+        console.print(f"[dim]You can now install it using: devforge plugin install {clean_name}[/dim]")
+    else:
+        console.print(f"[red]✗ Failed to register plugin in registry/plugins.yaml[/red]")
+        sys.exit(1)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # V2 COMMANDS: per-service management
 # ──────────────────────────────────────────────────────────────────────────────
@@ -691,23 +763,38 @@ def cmd_shell(service, project):
 @click.option("--profile", default="dev", show_default=True,
               type=click.Choice(["dev", "testing", "production"]),
               help="Environment profile")
-def cmd_up(project, profile):
+@click.option("--all", "all_projects", is_flag=True, help="Start services for all projects")
+def cmd_up(project, profile, all_projects):
     """Start services.
 
-    \b
     With --project: starts only that project's services.
-    Without --project: starts the full v1 DevForge platform.
+    With --all: starts services for all detected projects.
+    Without --project/--all: starts the full v1 DevForge platform.
 
     \b
     Examples:
       devforge up                              # v1: all platform services
       devforge up --project socialcross        # v2: project services (dev profile)
       devforge up --project socialcross --profile production
+      devforge up --all                        # start all projects
     """
     from engine.workspace import WorkspaceManager
     from engine.service_manager import ServiceManager
 
-    if project:
+    if all_projects:
+        ws = WorkspaceManager()
+        projects = ws.list_projects()
+        if not projects:
+            console.print("[yellow]⚠ No projects found to start.[/yellow]")
+            sys.exit(0)
+        has_failed = False
+        for p_name in projects:
+            proj = ws.resolve_project(p_name)
+            rc = ServiceManager().up_all(proj, profile=profile, exit_on_complete=False)
+            if rc != 0:
+                has_failed = True
+        sys.exit(1 if has_failed else 0)
+    elif project:
         ws = WorkspaceManager()
         proj = ws.resolve_project(project)
         ServiceManager().up_all(proj, profile=profile)
@@ -910,12 +997,28 @@ def cmd_doctor(project):
 
 @cli.command("down")
 @click.option("--project", default=None, help="Stop only a specific project's services")
-def cmd_down(project):
+@click.option("--all", "all_projects", is_flag=True, help="Stop services for all projects")
+def cmd_down(project, all_projects):
     """Stop services.
 
-    Without --project stops the full v1 platform.
+    Without --project/--all stops the full v1 platform.
     """
-    if project:
+    if all_projects:
+        from engine.workspace import WorkspaceManager
+        from engine.service_manager import ServiceManager
+        ws = WorkspaceManager()
+        projects = ws.list_projects()
+        if not projects:
+            console.print("[yellow]⚠ No projects found to stop.[/yellow]")
+            sys.exit(0)
+        has_failed = False
+        for p_name in projects:
+            proj = ws.resolve_project(p_name)
+            rc = ServiceManager().down_all(proj, exit_on_complete=False)
+            if rc != 0:
+                has_failed = True
+        sys.exit(1 if has_failed else 0)
+    elif project:
         from engine.workspace import WorkspaceManager
         from engine.service_manager import ServiceManager
         ws = WorkspaceManager()
